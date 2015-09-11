@@ -1,52 +1,46 @@
 import os
 import subprocess as sb
 
-def start_set_of_simulations(model,dirs,mdpfiles,runslurms,rstslurms,prepcmd=False):
-    """Run simulations"""
+def submit_simulations(save_simulation_files,dirs,mdpfiles,runslurms,rstslurms):
+    """Run simulations 
+    
+    Parameters
+    ----------
+    model : object
+        
+    dirs : list
+    
+    mdpfiles : list
+
+    runslurms : list
+
+    rstslurms : list
+
+    """
     n_dirs = len(dirs)
-    name = model.name
-
-    if len(mdpfiles) == 1:
-        mdpfiles = [ mdpfiles[0] for i in range(n_dirs) ]
-
-    if prepcmd:
-        prep_step = prepcmd
-    else:
-        prep_step = 'grompp_sbm -n index.ndx -f run.mdp -c conf.gro -p topol.top -o topol_4.5.tpr'
-
     for n in range(n_dirs):
         dir = dirs[n]
-
         if os.path.exists(dir):
-            print "skipping ", dir
+            print "skipping %s" % dir
         else:
-            print "starting ", dir
-            os.mkdir(Tdir)
-            os.chdir(Tdir)
-            mdp = mdpfiles[n]
-            runslurm = runslurms[n]
-            rstslurm = rstslurms[n]
+            print "starting %s" % dir
+            os.mkdir(dir)
+            os.chdir(dir)
 
-            model.save_simulation_files()
+            save_simulation_files()
 
             with open("run.mdp","w") as fout:
-                # Molecular dynamics parameters
-                fout.write(mdp)
-
-            with open("prep.out","w") as fout:
-                # Prepare run
-                sb.call(prep_step.split(),stdout=fout,stderr=fout)
+                fout.write(mdpfiles[n])
 
             with open("run.slurm","w") as fout:
-                fout.write(runslurm)
+                fout.write(runslurms[n])
 
             with open("rst.slurm","w") as fout:
-                fout.write(rstslurm)
+                fout.write(rstslurms[n])
 
             with open("sim.out","w") as fout:
-                # Submit simulation and get jobID
-                sbatch = "sbatch run.slurm"
-                sb.call(sbatch.split(),stdout=fout,stderr=fout)
+                sb.call("sbatch run.slurm".split(),stdout=fout,stderr=fout)
 
             os.chdir("..")
+
 
