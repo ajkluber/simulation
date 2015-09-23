@@ -33,7 +33,11 @@ def get_args():
 
     parser.add_argument('--saveas',
             type=str,
-            help='File to save in directory.')
+            help='Filename to save coordinate as.')
+
+    parser.add_argument('--savepath',
+            type=str,
+            help='Directory to save in.')
 
     args = parser.parse_args()
     return args
@@ -56,16 +60,14 @@ if __name__ == "__main__":
         save_coord_as = args.saveas
 
     # Data source
-    cwd = os.getcwd()
-    trajfiles = [ "%s/%s/traj.xtc" % (cwd,x.rstrip("\n")) for x in open(dirsfile,"r").readlines() ]
+    trajfiles = [ "%s/traj.xtc" % (x.rstrip("\n")) for x in open(dirsfile,"r").readlines() ]
     dir = os.path.dirname(trajfiles[0])
     n_native_pairs = len(open("%s/native_contacts.ndx" % dir).readlines()) - 1
     if (not os.path.exists("%s/pairwise_params" % dir)) or (not os.path.exists("%s/model_params" % dir)):
         raise IOError("%s/pairwise_params or %s/model_params does not exist!" % (dir,dir))
     else:
-        # Get potential parameters. 
-        # Assumes gaussian contacts.
-        # Doesn't include exluded volume terms.
+        # Get potential parameters. Assumes gaussian contacts. Doesn't include
+        # exluded volume terms.
         if contacts == "native":
             pairs = np.loadtxt("%s/pairwise_params" % dir,usecols=(0,1),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2] - 1
             param_idx = np.loadtxt("%s/pairwise_params" % dir,usecols=(2,),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2]
@@ -95,4 +97,4 @@ if __name__ == "__main__":
     energy_function = util.get_contact_energy_function(pairs,pair_type,eps,contact_params,periodic=periodic)
 
     # Calculate contact function over directories
-    util.calc_coordinate_multiple_trajs(trajfiles,energy_function,topology,chunksize,save_coord_as=save_coord_as)
+    util.calc_coordinate_multiple_trajs(trajfiles,energy_function,topology,chunksize,save_coord_as=save_coord_as,savepath=args.savepath)
