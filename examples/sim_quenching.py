@@ -28,13 +28,13 @@ def start_quenching_run(model,Tlist,pslist):
     nsteps = 600000
     name = model.name
 
-    nvt = pjt.simulation.mdp.simulated_annealing(Tlist,pslist,str(nsteps))
+    mdpfile = simulation.mdp.simulated_annealing(Tlist,pslist,str(nsteps))
 
     model.save_simulation_files(savetables=False)
 
     with open("nvt.mdp","w") as fout:
         # Molecular dynamics parameters
-        fout.write(nvt)
+        fout.write(mdpfile)
 
     with open("prep.out","w") as fout:
         # Prepare run

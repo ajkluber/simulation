@@ -92,7 +92,7 @@ if __name__ == "__main__":
             print "Going to run %d jobs, each with %d nodes; %d processors per node. %d total quenching simulations" % (n_jobs,n_nodes,ppn,n_jobs*n_processors_per_job)
             for j in range(n_jobs):
                 print "  running job", j
-                command = "srun python -m misc.sim_quenching --name %s --rank_offset %d" % (name,rank_offset)
+                command = "srun python -m simulation.sim_quenching --name %s --rank_offset %d" % (name,rank_offset)
 
                 # Submit job script
                 jobname = "%s_qnch_%d" % (name,j)

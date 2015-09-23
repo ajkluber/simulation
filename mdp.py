@@ -6,9 +6,6 @@ Purpose:
 this module returns a grompp.mdp as a string. The requested variables will be 
 already set (e.g. temperature, timestep, friction constant).
 
-#TODO(alex):
-- mdp for simulated annealing
-
 """
 
 def constant_temperature(T,nsteps,nstout="1000"):
