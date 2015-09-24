@@ -43,6 +43,10 @@ def get_args():
             type=str,
             help='File to save in directory.')
 
+    parser.add_argument('--savepath',
+            type=str,
+            help='Directory to save in.')
+
     args = parser.parse_args()
     return args
 
@@ -63,8 +67,7 @@ if __name__ == "__main__":
         save_coord_as = args.saveas
 
     # Data source
-    cwd = os.getcwd()
-    trajfiles = [ "%s/%s/traj.xtc" % (cwd,x.rstrip("\n")) for x in open(dirsfile,"r").readlines() ]
+    trajfiles = [ "%s/traj.xtc" % x.rstrip("\n") for x in open(dirsfile,"r").readlines() ]
     dir = os.path.dirname(trajfiles[0])
     n_native_pairs = len(open("%s/native_contacts.ndx" % dir).readlines()) - 1
     if os.path.exists("%s/pairwise_params" % dir):
@@ -98,5 +101,5 @@ if __name__ == "__main__":
     contact_function = util.get_sum_contact_function(pairs,function,contact_params,periodic=periodic)
 
     # Calculate contact function over directories
-    util.calc_coordinate_multiple_trajs(trajfiles,contact_function,topology,chunksize,save_coord_as=save_coord_as)
+    util.calc_coordinate_multiple_trajs(trajfiles,contact_function,topology,chunksize,save_coord_as=save_coord_as,savepath=args.savepath)
 
