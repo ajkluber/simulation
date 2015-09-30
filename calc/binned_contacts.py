@@ -6,10 +6,10 @@ import simulation.calc.util as util
 
 def get_args():
     parser = argparse.ArgumentParser(description='.')
-    parser.add_argument('--dirs',
+    parser.add_argument('--trajs',
             type=str,
             required=True,
-            help='File holding directory names.')
+            help='File holding trajectory paths.')
 
     parser.add_argument('--coordfile',
             type=str,
@@ -56,7 +56,7 @@ def get_args():
 if __name__ == "__main__":
     args = get_args()
 
-    dirsfile = args.dirs
+    trajsfile = args.trajs
     function = args.function 
     coordfile = args.coordfile
     coordname = coordfile.split(".")[0]
@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     # Data source
     cwd = os.getcwd()
-    trajfiles = [ "%s/%s/traj.xtc" % (cwd,x.rstrip("\n")) for x in open(dirsfile,"r").readlines() ]
+    trajfiles = [ "%s/%s" % (cwd,x.rstrip("\n")) for x in open(trajsfile,"r").readlines() ]
     dir = os.path.dirname(trajfiles[0])
     n_native_pairs = len(open("%s/native_contacts.ndx" % dir).readlines()) - 1
     r0 = np.loadtxt("%s/pairwise_params" % dir,usecols=(4,),skiprows=1)[1:2*n_native_pairs:2] + 0.1

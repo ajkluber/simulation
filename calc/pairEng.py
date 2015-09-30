@@ -6,10 +6,10 @@ import simulation.calc.util as util
 
 def get_args():
     parser = argparse.ArgumentParser(description='.')
-    parser.add_argument('--dirs',
+    parser.add_argument('--trajs',
             type=str,
             required=True,
-            help='File holding directory names.')
+            help='File holding trajectory paths.')
 
     parser.add_argument('--contacts',
             type=str,
@@ -45,7 +45,7 @@ def get_args():
 if __name__ == "__main__":
     args = get_args()
 
-    dirsfile = args.dirs
+    trajsfile = args.trajs
     contacts = args.contacts
     topology = args.topology
     chunksize = args.chunksize
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         save_coord_as = args.saveas
 
     # Data source
-    trajfiles = [ "%s/traj.xtc" % (x.rstrip("\n")) for x in open(dirsfile,"r").readlines() ]
+    trajfiles = [ "%s" % (x.rstrip("\n")) for x in open(trajsfile,"r").readlines() ]
     dir = os.path.dirname(trajfiles[0])
     n_native_pairs = len(open("%s/native_contacts.ndx" % dir).readlines()) - 1
     if (not os.path.exists("%s/pairwise_params" % dir)) or (not os.path.exists("%s/model_params" % dir)):
