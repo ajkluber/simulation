@@ -186,10 +186,35 @@ fi
 
 def get_check_cmd(Qfolded,extend_ps,noappend=False):
     if noappend:
-        noappend = "-noappend"
+        extendcmd = \
+"""# Bash script to see if protein folded and if not extend the simulation
+folded=0
+while read p; do
+    if [ $p -ge %d ]
+    then
+        echo 'Protein has folded! Stopping simulation'
+        folded=1
+        break
+    fi
+done <Q.dat
+if [ ${folded} -eq 0 ]
+then
+    tpbconv_sbm -s topol_4.5.tpr -o topol_4.5_ext.tpr -extend %f
+    mv topol_4.5_ext.tpr topol_4.5.tpr 
+    mdrun_sbm -s topol_4.5.tpr -cpi state.cpt -maxh 23.5 -noappend
+    trjcat_sbm -f traj.xtc traj.part* -o traj_whole.xtc &> cat.log
+    g_kuh_sbm -s Native.pdb -f traj_whole.xtc -n native_contacts.ndx -o Q -noshortcut -abscut -cut 0.1
+    mv Q.out Q.dat
+    g_energy_sbm -f ener.edr -o energyterms -xvg none << EOF
+Bond
+Angle
+Proper-Dih.
+Gaussian
+Potential
+EOF
+fi""" % (Qfolded,extend_ps)
     else:
-        noappend = ""
-    extendcmd = \
+        extendcmd = \
 """# Bash script to see if protein folded and if not extend the simulation
 folded=0
 while read p; do
