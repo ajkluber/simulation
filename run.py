@@ -1,7 +1,7 @@
 import os
 import subprocess as sb
 
-def submit_simulations(save_simulation_files,dirs,mdpfiles,runslurms,rstslurms):
+def submit_simulations(save_simulation_files,dirs,mdpfiles,runslurms,rstslurms,morefiles=None,submit=True):
     """Run simulations 
     
     Parameters
@@ -28,6 +28,12 @@ def submit_simulations(save_simulation_files,dirs,mdpfiles,runslurms,rstslurms):
             os.chdir(dir)
 
             save_simulation_files()
+        
+            # Save additional files for specialized simulation  
+            if morefiles is not None:
+                for filename,filestring in morefiles[n].items():
+                    with open(filename,"w") as fout:
+                        fout.write(filestring)
 
             with open("run.mdp","w") as fout:
                 fout.write(mdpfiles[n])
@@ -38,8 +44,9 @@ def submit_simulations(save_simulation_files,dirs,mdpfiles,runslurms,rstslurms):
             with open("rst.slurm","w") as fout:
                 fout.write(rstslurms[n])
 
-            with open("sim.out","w") as fout:
-                sb.call("sbatch run.slurm".split(),stdout=fout,stderr=fout)
+            if submit:
+                with open("sim.out","w") as fout:
+                    sb.call("sbatch run.slurm".split(),stdout=fout,stderr=fout)
 
             os.chdir("..")
 
