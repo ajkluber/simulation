@@ -65,36 +65,20 @@ if __name__ == "__main__":
     topology = args.topology
     periodic = args.periodic
  
-    util.check_if_supported(function)
-
     # Data source
-    cwd = os.getcwd()
-    trajfiles = [ "%s/%s" % (cwd,x.rstrip("\n")) for x in open(trajsfile,"r").readlines() ]
+    trajfiles = [ "%s" % x.rstrip("\n") for x in open(trajsfile,"r").readlines() ]
     dir = os.path.dirname(trajfiles[0])
-    n_native_pairs = len(open("%s/native_contacts.ndx" % dir).readlines()) - 1
-    r0 = np.loadtxt("%s/pairwise_params" % dir,usecols=(4,),skiprows=1)[1:2*n_native_pairs:2] + 0.1
-    coord_sources = [ "%s/%s" % (os.path.dirname(trajfiles[i]),args.coordfile) for i in range(len(trajfiles)) ]
 
-    # Get contact function parameters
-    if function == "w_tanh":
-        if (not os.path.exists(args.tanh_weights)) or (args.tanh_weights is None):
-            raise IOError("Weights file doesn't exist: %s" % args.tanh_weights)
-        else:
-            pairs = np.loadtxt(args.tanh_weights,usecols=(0,1),dtype=int)
-            widths = args.tanh_scale*np.ones(pairs.shape[0],float)
-            weights = np.loadtxt(args.tanh_weights,usecols=(2,),dtype=float)
-            contact_params = (r0,widths,weights)
-    elif function == "tanh":
-        pairs = np.loadtxt("%s/native_contacts.ndx" % dir,skiprows=1,dtype=int) - 1
-        widths = args.tanh_scale*np.ones(r0.shape[0],float)
-        contact_params = (r0,widths)
-    elif function == "step":
-        pairs = np.loadtxt("%s/native_contacts.ndx" % dir,skiprows=1,dtype=int) - 1
-        contact_params = (r0)
+    if args.saveas is None:
+        save_coord_as = {"step":"Q.dat","tanh":"Qtanh.dat","w_tanh":"Qtanh_w.dat"}[function]
     else:
-        raise IOError("--function must be in: %s" % util.supported_functions.keys().__str__())
+        save_coord_as = args.saveas
 
-    if not all([ os.path.exists(coord_sources[i]) for i in range(len(coord_sources)) ]):
+    # Parameterize contact-based reaction coordinate
+    contact_params = util.get_contact_params(dir,args)
+    coord_sources = [  "%s/%s" % (os.path.dirname(trajfiles[i]),coordfile) for i in range(len(trajfiles)) ]
+
+    if not all([ os.path.exists(x) for x in coord_sources ]):
         # Parameterize contact-based reaction coordinate
         contact_function = util.get_sum_contact_function(pairs,function,contact_params,periodic=periodic)
 
@@ -108,7 +92,7 @@ if __name__ == "__main__":
     pairwise_contact_function = util.get_pair_contact_function(pairs,function,contact_params,periodic=periodic)
 
     # Calculate pairwise contacts over directories 
-    bin_edges,avgQi_by_bin = bin_multiple_coordinates_for_multiple_trajs(trajfiles,
+    bin_edges,avgQi_by_bin = util.bin_multiple_coordinates_for_multiple_trajs(trajfiles,
             contacts,pairwise_contact_function,pairs.shape[0],n_bins,topology,chunksize)
 
     # Save  

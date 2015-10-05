@@ -73,6 +73,43 @@ def step_contact(r,r0):
     return (r <= r0).astype(int)
 
 ######################################################################
+# Parameterize functions from source data
+######################################################################
+def get_contact_params(dir,args):
+    check_if_supported(args.function)
+
+    n_native_pairs = len(open("%s/native_contacts.ndx" % dir).readlines()) - 1
+    if os.path.exists("%s/pairwise_params" % dir):
+        r0 = np.loadtxt("%s/pairwise_params" % dir,usecols=(4,),skiprows=1)[1:2*n_native_pairs:2] + 0.1
+    elif os.path.exists("%s/native_contact_distances.dat" % dir):
+        r0 = np.loadtxt("%s/native_contact_distances.dat" % dir) + 0.1
+    else:
+        raise IOError("Need source for native contact distances!")
+    assert r0.shape[0] == n_native_pairs
+
+    # Get contact function parameters
+    if args.function == "w_tanh":
+        if (not os.path.exists(args.tanh_weights)) or (args.tanh_weights is None):
+            raise IOError("Weights file doesn't exist: %s" % args.tanh_weights)
+        else:
+            pairs = np.loadtxt(args.tanh_weights,usecols=(0,1),dtype=int)
+            widths = args.tanh_scale*np.ones(pairs.shape[0],float)
+            weights = np.loadtxt(args.tanh_weights,usecols=(2,),dtype=float)
+            contact_params = (r0,widths,weights)
+    elif args.function == "tanh":
+        pairs = np.loadtxt("%s/native_contacts.ndx" % dir,skiprows=1,dtype=int) - 1
+        widths = args.tanh_scale*np.ones(r0.shape[0],float)
+        contact_params = (r0,widths)
+    elif args.function == "step":
+        pairs = np.loadtxt("%s/native_contacts.ndx" % dir,skiprows=1,dtype=int) - 1
+        contact_params = (r0)
+    else:
+        raise IOError("--function must be in: %s" % supported_functions.keys().__str__())
+
+    return pairs, contact_params
+
+
+######################################################################
 # Functions to loop over trajectories in chunks
 ######################################################################
 def calc_coordinate_for_traj(trajfile,observable_fun,topology,chunksize):
