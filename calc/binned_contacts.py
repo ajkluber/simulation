@@ -32,6 +32,7 @@ def get_args():
             help='Contact functional form. Opt.')
 
     parser.add_argument('--tanh_scale',
+            type=float,
             default=0.3,
             help='Tanh contact switching scale. Opt.')
 
@@ -49,11 +50,17 @@ def get_args():
             default=False,
             help='Periodic.')
 
+    parser.add_argument('--savepath',
+            type=str,
+            help='Directory to save in.')
+
     args = parser.parse_args()
     return args
 
 
 if __name__ == "__main__":
+    import time
+    starttime = time.time()
     args = get_args()
 
     trajsfile = args.trajs
@@ -69,13 +76,8 @@ if __name__ == "__main__":
     trajfiles = [ "%s" % x.rstrip("\n") for x in open(trajsfile,"r").readlines() ]
     dir = os.path.dirname(trajfiles[0])
 
-    if args.saveas is None:
-        save_coord_as = {"step":"Q.dat","tanh":"Qtanh.dat","w_tanh":"Qtanh_w.dat"}[function]
-    else:
-        save_coord_as = args.saveas
-
     # Parameterize contact-based reaction coordinate
-    contact_params = util.get_contact_params(dir,args)
+    pairs, contact_params = util.get_contact_params(dir,args)
     coord_sources = [  "%s/%s" % (os.path.dirname(trajfiles[i]),coordfile) for i in range(len(trajfiles)) ]
 
     if not all([ os.path.exists(x) for x in coord_sources ]):
@@ -83,7 +85,7 @@ if __name__ == "__main__":
         contact_function = util.get_sum_contact_function(pairs,function,contact_params,periodic=periodic)
 
         # Calculate contact function over directories
-        contacts = util.calc_coordinate_multiple_trajs(trajfiles,contact_function,topology,chunksize,save_coord_as=args.coordfile,collect=True)
+        contacts = util.calc_coordinate_multiple_trajs(trajfiles,contact_function,topology,chunksize,save_coord_as=args.coordfile,savepath=args.savepath,collect=True)
     else:
         # Load precalculated coordinate
         contacts = [ np.loadtxt(coord_sources[i]) for i in range(len(coord_sources)) ]
@@ -95,8 +97,15 @@ if __name__ == "__main__":
     bin_edges,avgQi_by_bin = util.bin_multiple_coordinates_for_multiple_trajs(trajfiles,
             contacts,pairwise_contact_function,pairs.shape[0],n_bins,topology,chunksize)
 
-    # Save  
-    #np.savetxt("",avgQi_by_bin)
-    #np.savetxt("bin_edges.dat",bin_edges)
-    #np.savetxt("mid_bin.dat",mid_bin)
+    cwd = os.getcwd()
+    if args.savepath is not None:
+        os.chdir(args.savepath)
 
+    # Save  
+    if not os.path.exists("binned_contacts_vs_%s" % coordname):
+        os.mkdir("binned_contacts_vs_%s" % coordname)
+    os.chdir("binned_contacts_vs_%s" % coordname)
+    np.savetxt("contacts_vs_bin.dat",avgQi_by_bin)
+    np.savetxt("bin_edges.dat",bin_edges)
+    os.chdir(cwd)
+    print "Took: %.2f" % ((time.time() - starttime)/60.)

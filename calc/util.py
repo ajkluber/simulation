@@ -98,7 +98,7 @@ def get_contact_params(dir,args):
             contact_params = (r0,widths,weights)
     elif args.function == "tanh":
         pairs = np.loadtxt("%s/native_contacts.ndx" % dir,skiprows=1,dtype=int) - 1
-        widths = args.tanh_scale*np.ones(r0.shape[0],float)
+        widths = args.tanh_scale*np.ones(pairs.shape[0],float)
         contact_params = (r0,widths)
     elif args.function == "step":
         pairs = np.loadtxt("%s/native_contacts.ndx" % dir,skiprows=1,dtype=int) - 1

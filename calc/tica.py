@@ -7,6 +7,16 @@ import numpy as np
 
 import pyemma.coordinates as coor
 
+def get_Q(Tdir,stride=1):
+    Q = None
+    if os.path.exists("%s/Q.dat" % Tdir):
+        Q = np.loadtxt("%s/Q.dat" % Tdir)[::stride]
+    elif os.path.exists("%s/Q.npy" % Tdir):
+        Q = np.load("%s/Q.npy" % Tdir)[::stride]
+    elif os.path.exists("%s/Q.out" % Tdir):
+        Q = np.loadtxt("%s/Q.out" % Tdir)[::stride]
+    return Q
+
 def get_args():
     parser = argparse.ArgumentParser(description='.')
     parser.add_argument('--dirs',
@@ -29,10 +39,22 @@ def get_args():
             required=True, 
             help='Input feature to TICA.')
 
+    parser.add_argument('--saveas',
+            type=str,
+            help='File to save in directory.')
+
+    parser.add_argument('--savepath',
+            type=str,
+            help='Directory to save in.')
+
     args = parser.parse_args()
     return args
 
 if __name__ == "__main__":
+
+    # TODO:
+    #  - allow for alternative savepath.
+
     args = get_args()
     dirsfile = args.dirs
     lag = args.lag
@@ -62,6 +84,7 @@ if __name__ == "__main__":
     # Have to use local logger so as not to conflict with pyemma's logging.
     logger = logging.getLogger('calcTICA')
 
+    # Sort replicas that share the same basename 
     temps = [ x.rstrip("\n") for x in open(dirsfile,"r").readlines() ]
     uniq_Tlist = []
     Tlist = []
@@ -71,7 +94,8 @@ if __name__ == "__main__":
         if T not in uniq_Tlist:
             uniq_Tlist.append(T)
             Tlist.append([temps[i]])
-            q = np.loadtxt("%s/Q.dat" % temps[i])
+            q = get_Q(temps[i])
+            #q = np.loadtxt("%s/Q.dat" % temps[i])
             q += np.random.rand(q.shape[0])
             Qlist.append(q)
         else:
@@ -84,14 +108,14 @@ if __name__ == "__main__":
 
     # For each unique temperature. Run TICA
     for i in range(len(Tlist)):
-        dirs = Tlist[i]
         logger.info("Running TICA T = %s" % uniq_Tlist[i])
-
+        dirs = Tlist[i]
         traj_list = [ "%s/traj.xtc" % x for x in dirs ]
         topfile = "%s/Native.pdb" % dirs[0]
         n_residues = len(open(topfile,"r").readlines()) - 1
 
         logger.info("  picking features: ")
+        # Get parameters for contact feature.
         if feature == "all_contacts":
             logger.info("    contacts between all pairs")
             pairs = []
@@ -107,6 +131,7 @@ if __name__ == "__main__":
             pairs = np.loadtxt("%s/native_contacts.ndx" % dirs[0],dtype=int,skiprows=1) - 1
             threshold = np.loadtxt("%s/pairwise_params" % dirs[0],usecols=(4,))[1:2*pairs.shape[0]:2] + 0.1
             scale = 0.3
+
 
         # Featurizer parameterizes a pipeline to read in trajectory in chunks.
         feat = coor.featurizer(topfile)
