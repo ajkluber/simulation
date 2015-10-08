@@ -149,15 +149,15 @@ def bin_multiple_coordinates_for_traj(trajfile,obs_by_bin,count_by_bin,observabl
         chunk_size = trajchunk.n_frames
         coord = binning_coord[start_idx:start_idx + chunk_size]
         # Sort frames into bins along binning coordinate. Collect observable average
-        for n in range(len(bin_edges) - 1):
-            frames_in_this_bin = (coord >= bin_edges[n]) & (coord < bin_edges[n + 1])
+        for n in range(bin_edges.shape[0]):
+            frames_in_this_bin = (coord >= bin_edges[n][0]) & (coord < bin_edges[n][1])
             if frames_in_this_bin.any():
                 obs_by_bin[n,:] += np.sum(obs_temp[frames_in_this_bin,:],axis=0)
                 count_by_bin[n] += float(sum(frames_in_this_bin))
         start_idx += chunk_size
     return obs_by_bin,count_by_bin
 
-def bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,observable_function,n_obs,n_bins,topology,chunksize):
+def bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,observable_function,n_obs,bins,topology,chunksize):
     """Bin multiple coordinates by looping over trajectories
 
     Parameters
@@ -169,7 +169,15 @@ def bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,observab
 
     """
     # Calculate pairwise contacts over directories 
-    counts,bin_edges = np.histogram(np.concatenate(binning_coord),bins=n_bins)
+    if type(bins) == int:
+        n_bins = bins
+        counts,bin_edges = np.histogram(np.concatenate(binning_coord),bins=n_bins)
+        bin_edges = np.array([[bin_edges[i],bin_edges[i+1]] for i in range(n_bins)])
+    else:
+        bin_edges = bins
+        n_bins = bin_edges.shape[0]
+    assert bin_edges.shape[1] == 2
+    assert bin_edges.shape[0] == n_bins
     obs_by_bin = np.zeros((n_bins,n_obs),float)
     count_by_bin = np.zeros(n_bins,float)
     for n in range(len(trajfiles)):
