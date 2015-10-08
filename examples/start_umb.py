@@ -23,15 +23,20 @@ def get_args():
             required=True,
             help='Name of ini file.')
 
-    parser.add_argument('--pairsfile',
+    parser.add_argument('--pairs',
             type=str,
             required=True,
             help='Name of contacts file.')
 
     parser.add_argument('--kappa',
-            type=str,
-            default="Native.pdb",
+            type=float,
+            default=0.2,
             help='Contact functional form. Opt.')
+
+    parser.add_argument('--T',
+            type=float,
+            default=110,
+            help='Temperature. Opt.')
 
     args = parser.parse_args()
     return args
@@ -90,19 +95,21 @@ fi
 
 if __name__ == "__main__":
 
-    #args = get_args()
-    #name = args.name
-    #pairs = np.loadtxt(args.pairsfile,dtype=int)
+    args = get_args()
+    name = args.name
+    T = args.T
 
-    name = "PDZ"
-    pairs = np.loadtxt("cacb_cutoff_contacts",dtype=int)
+    pairs = np.loadtxt(args.pairs,dtype=int)
+
+    #name = "PDZ"
+    #pairs = np.loadtxt("cacb_cutoff_contacts",dtype=int)
+    #T = 120
 
     # Needed:
-    kappa = 5
-    k_umb = 0.1
-    umb_steps = 2e4
+    kappa = 10
+    k_umb = 0.2
+    umb_steps = 3e4
     
-    T = 120
     nsteps = 1e8
 
     # determine the centers of umbrellas
