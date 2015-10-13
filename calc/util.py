@@ -3,6 +3,19 @@ import numpy as np
 
 import mdtraj as md
 
+class ContactArgs(object):
+    """Class to parameterize contact function"""
+    def __init__(self,trajsfile,bins=40,function="tanh",tanh_scale=0.05,
+            coordfile="Qtanh_0_05.dat",topology="Native.pdb",chunksize=1000,periodic=False):
+        self.trajs = trajsfile
+        self.function = function
+        self.coordfile = coordfile
+        self.bins = bins
+        self.tanh_scale = tanh_scale
+        self.chunksize = chunksize
+        self.topology = topology
+        self.periodic = periodic
+
 ######################################################################
 # Utility functions
 ######################################################################
