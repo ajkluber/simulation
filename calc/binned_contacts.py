@@ -61,12 +61,12 @@ def get_args():
     parser.add_argument('--bins',
             type=int,
             default=40,
-            help='Contact functional form.')
+            help='Number of bins along binning coordinate.')
 
     parser.add_argument('--topology',
             type=str,
             default="Native.pdb",
-            help='Contact functional form. Opt.')
+            help='Filename for MDTraj topology info. (pdb) Opt.')
 
     parser.add_argument('--tanh_scale',
             type=float,

@@ -98,12 +98,14 @@ def step_contact(r,r0):
 ######################################################################
 # Parameterize functions from source data
 ######################################################################
-def get_contact_params(dir,args):
-    check_if_supported(args.function)
+def get_contact_params(dir,args,pair_param_file="pairwise_params"):
+    """Get parameters to calculate contacts"""
+    if hasattr(args,"function"):
+        check_if_supported(args.function)
 
     n_native_pairs = len(open("%s/native_contacts.ndx" % dir).readlines()) - 1
-    if os.path.exists("%s/pairwise_params" % dir):
-        r0 = np.loadtxt("%s/pairwise_params" % dir,usecols=(4,),skiprows=1)[1:2*n_native_pairs:2] + 0.1
+    if os.path.exists("%s/%s" % (dir,pair_param_file)):
+        r0 = np.loadtxt("%s/%s" % (dir,pair_param_file),usecols=(4,),skiprows=1)[1:2*n_native_pairs:2] + 0.1
     elif os.path.exists("%s/native_contact_distances.dat" % dir):
         r0 = np.loadtxt("%s/native_contact_distances.dat" % dir) + 0.1
     else:
@@ -275,7 +277,6 @@ def bin_multiple_coordinates_for_traj(trajfile,obs_by_bin,count_by_bin,observabl
         start_idx += chunk_size
     return obs_by_bin,count_by_bin
 
-
 def bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,observable_function,n_obs,bins,topology,chunksize):
     """Bin multiple coordinates by looping over trajectories"""
     # Calculate pairwise contacts over directories 
@@ -297,9 +298,11 @@ def bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,observab
     avgobs_by_bin = (obs_by_bin.T/count_by_bin).T
     return bin_edges,avgobs_by_bin
 
-
 global supported_functions
 supported_functions = {"step":step_contact,"tanh":tanh_contact,"w_tanh":weighted_tanh_contact}
+
+global default_contact_params
+default_contact_params = {"function":"tanh","tanh_scale":0.3}
 
 if __name__ == "__main__":
     pass

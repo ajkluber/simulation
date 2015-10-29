@@ -54,29 +54,20 @@ def get_args():
             required=True,
             help='File of reaction coordinate.')
 
-    parser.add_argument('--function',
+    parser.add_argument('--contacts',
             type=str,
             required=True,
-            help='Contact functional form.')
+            help='Compute energy for native or non-native contacts?')
 
     parser.add_argument('--bins',
             type=int,
             default=40,
-            help='Contact functional form.')
+            help='Number of bins along binning coordinate.')
 
     parser.add_argument('--topology',
             type=str,
             default="Native.pdb",
-            help='Contact functional form. Opt.')
-
-    parser.add_argument('--tanh_scale',
-            type=float,
-            default=0.3,
-            help='Tanh contact switching scale. Opt.')
-
-    parser.add_argument('--tanh_weights',
-            type=float,
-            help='Tanh contact weights. Opt.')
+            help='Filename for MDTraj topology info. (pdb) Opt.')
 
     parser.add_argument('--chunksize',
             type=int,
@@ -99,14 +90,38 @@ def get_args():
 if __name__ == "__main__":
     import time
     starttime = time.time()
+
     args = get_args()
 
     trajsfile = args.trajs
     coordfile = args.coordfile
-    coordname = coordfile.split(".")[0]
- 
-    bin_edges, avgqi_by_bin = binned_contacts.calculate_binned_contacts_vs_q(args)
+    bins = args.bins
+    topology = args.topology
+    chunksize = args.chunksize
+    periodic = args.periodic
+    bincoordname = coordfile.split(".")[0]
 
+    if args.saveas is None:
+        varcoordname = {"native":"dEnat2","nonnative":"dEnon2"}[args.contacts]
+    else:
+        varcoordname = args.saveas
+
+    trajfiles = [ "%s" % (x.rstrip("\n")) for x in open(trajsfile,"r").readlines() ]
+    dir = os.path.dirname(trajfiles[0])
+
+    # Parameterize contact energy function.
+    pairs,pair_type,eps,contact_params = util.get_pair_energy_params(dir,args)
+    energy_function = util.get_contact_energy_function(pairs,pair_type,eps,contact_params,periodic=periodic)
+
+    coord_sources = [  "%s/%s" % (os.path.dirname(trajfiles[i]),coordfile) for i in range(len(trajfiles)) ]
+    binning_coord = [ np.loadtxt(coord_sources[i]) for i in range(len(coord_sources)) ]
+
+    n_obs = 1
+ 
+    # Calculate binned energy
+    bin_edges, avgE_by_bin = util.bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,energy_function,n_obs,bins,topology,chunksize)
+
+    # Calculate binned variance
 
     # parameterize
 
@@ -117,10 +132,10 @@ if __name__ == "__main__":
         os.chdir(args.savepath)
 
     # Save  
-    if not os.path.exists("binned_contacts_vs_%s" % coordname):
-        os.mkdir("binned_contacts_vs_%s" % coordname)
-    os.chdir("binned_contacts_vs_%s" % coordname)
-    np.savetxt("contacts_vs_bin.dat",avgqi_by_bin)
+    if not os.path.exists("binned_%s_vs_%s" % *(bincoordname,varcoordname)):
+        os.mkdir("binned_%s_vs_%s" % (bincoordname,varcoordname))
+    os.chdir("binned_%s_vs_%s" % (bincoordname,varcoordname))
+    np.savetxt("%s_vs_bin.dat", % bincoordname,avgqi_by_bin)
     np.savetxt("bin_edges.dat",bin_edges)
     os.chdir(cwd)
     print "Took: %.2f" % ((time.time() - starttime)/60.)
