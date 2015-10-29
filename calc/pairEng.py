@@ -67,7 +67,8 @@ if __name__ == "__main__":
         raise IOError("%s/pairwise_params or %s/model_params does not exist!" % (dir,dir))
     else:
         # Get potential parameters. Assumes gaussian contacts. Doesn't include
-        # exluded volume terms.
+        # exluded volume terms. Excluded volume terms blow up the calculation,
+        # but ignoring them is not large a large effect.
         if contacts == "native":
             pairs = np.loadtxt("%s/pairwise_params" % dir,usecols=(0,1),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2] - 1
             param_idx = np.loadtxt("%s/pairwise_params" % dir,usecols=(2,),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2]

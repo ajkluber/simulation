@@ -191,7 +191,22 @@ def bin_covariance_multiple_coordinates_for_traj(trajfile,covar_by_bin,count_by_
                 covar_by_bin[n,:,:] = np.dot(delta_obs1.T,delta_obs2)
                 count_by_bin[n] += float(sum(frames_in_this_bin))
         start_idx += chunk_size
-    return obs_by_bin,count_by_bin
+    return covar_by_bin,count_by_bin
+
+def bin_covariance_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,
+        observable1,observable2,obs1_bin_avg,obs2_bin_avg,
+        n_obs1,n_obs2,bin_edges,topology,chunksize):
+    """Compute covariance matrix between two observables over bins"""
+    n_bins = bin_edges.shape[0]
+    covar_by_bin = np.zeros((n_bins,n_obs1,n_obs_2),float)
+    count_by_bin = np.zeros(n_bins,float)
+    for n in range(len(trajfiles)):
+        dir = os.path.dirname(trajfiles[n])
+        covar_by_bin,count_by_bin = bin_covariance_multiple_coordinates_for_traj(trajfiles[n],covar_by_bin,count_by_bin,
+                observable1,observable2,obs1_bin_avg,obs2_bin_avg,
+                binning_coord[n],bin_edges,"%s/%s" % (dir,topology),chunksize)
+    avgcovar_by_bin = (covar_by_bin.T/count_by_bin).T
+    return bin_edges,avgcovar_by_bin
 
 def bin_multiple_coordinates_for_traj(trajfile,obs_by_bin,count_by_bin,observable_fun,binning_coord,bin_edges,topology,chunksize):
     """Loop over chunks of a trajectory to bin a set of observables along a 1D coordinate"""
@@ -213,16 +228,7 @@ def bin_multiple_coordinates_for_traj(trajfile,obs_by_bin,count_by_bin,observabl
 
 
 def bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,observable_function,n_obs,bins,topology,chunksize):
-    """Bin multiple coordinates by looping over trajectories
-
-    Parameters
-    ----------
-
-
-    Returns
-    -------
-
-    """
+    """Bin multiple coordinates by looping over trajectories"""
     # Calculate pairwise contacts over directories 
     if type(bins) == int:
         n_bins = bins
