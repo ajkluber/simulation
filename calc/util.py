@@ -131,7 +131,7 @@ def get_contact_params(dir,args):
 
     return pairs, contact_params
 
-def get_pair_energy_params(dir,pair_param_file="pairwise_params",model_param_file="model_params"):
+def get_pair_energy_params(dir,args,pair_param_file="pairwise_params",model_param_file="model_params"):
     """Get all parameters to compute pairwise energy
 
     Parameters
@@ -143,6 +143,9 @@ def get_pair_energy_params(dir,pair_param_file="pairwise_params",model_param_fil
     # - Instead of skipping every other line of pairwise param file (to skip
     # excluded volume terms) it would be better to just read all lines in then
     # filter them afterwards.
+    
+    if args.contacts not in ["native","nonnative"]:
+        raise IOError("--contacts must be: native OR nonnative")
 
     n_native_pairs = len(open("%s/native_contacts.ndx" % dir).readlines()) - 1
     if (not os.path.exists("%s/%s" % (dir,pair_param_file))) or (not os.path.exists("%s/%s" % (dir,model_param_file))):
@@ -151,7 +154,7 @@ def get_pair_energy_params(dir,pair_param_file="pairwise_params",model_param_fil
         # Get potential parameters. Assumes gaussian contacts. Doesn't include
         # exluded volume terms. Excluded volume terms blow up the calculation,
         # but ignoring them is not large a large effect.
-        if contacts == "native":
+        if args.contacts == "native":
             # Native contacts are assumed to come first
             pairs = np.loadtxt("%s/%s" % (dir,pair_param_file),usecols=(0,1),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2] - 1
             param_idx = np.loadtxt("%s/%s" % (dir,pair_param_file),usecols=(2,),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2]

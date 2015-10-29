@@ -107,6 +107,9 @@ if __name__ == "__main__":
  
     bin_edges, avgqi_by_bin = binned_contacts.calculate_binned_contacts_vs_q(args)
 
+
+    # parameterize
+
     #bin_edges, avgqi_by_bin = calculate_binned_energy_vs_q(args)
 
     cwd = os.getcwd()
