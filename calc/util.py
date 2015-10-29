@@ -131,6 +131,52 @@ def get_contact_params(dir,args):
 
     return pairs, contact_params
 
+def get_pair_energy_params(dir,pair_param_file="pairwise_params",model_param_file="model_params"):
+    """Get all parameters to compute pairwise energy
+
+    Parameters
+    ----------
+    dir : str
+        Directory that holds pairwise_params file. 
+    """
+    ## TODO: 
+    # - Instead of skipping every other line of pairwise param file (to skip
+    # excluded volume terms) it would be better to just read all lines in then
+    # filter them afterwards.
+
+    n_native_pairs = len(open("%s/native_contacts.ndx" % dir).readlines()) - 1
+    if (not os.path.exists("%s/%s" % (dir,pair_param_file))) or (not os.path.exists("%s/%s" % (dir,model_param_file))):
+        raise IOError("%s/%s or %s/%s does not exist!" % (dir,pair_param_file,dir))
+    else:
+        # Get potential parameters. Assumes gaussian contacts. Doesn't include
+        # exluded volume terms. Excluded volume terms blow up the calculation,
+        # but ignoring them is not large a large effect.
+        if contacts == "native":
+            # Native contacts are assumed to come first
+            pairs = np.loadtxt("%s/%s" % (dir,pair_param_file),usecols=(0,1),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2] - 1
+            param_idx = np.loadtxt("%s/%s" % (dir,pair_param_file),usecols=(2,),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2]
+            pair_type = np.loadtxt("%s/%s" % (dir,pair_param_file),usecols=(3,),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2]
+            eps = np.loadtxt("%s/%s" % (dir,model_param_file),skiprows=1)[1:2*n_native_pairs + 1:2]
+
+            contact_params = [] 
+            with open("%s/%s" % (dir,pair_param_file),"r") as fin:
+                all_lines = fin.readlines()[2:2*n_native_pairs + 2:2]
+                for i in range(pairs.shape[0]):
+                    temp_params = all_lines[i].rstrip("\n").split()[4:]
+                    contact_params.append(tuple([ float(x) for x in temp_params]))
+        else:
+            pairs = np.loadtxt("%s/%s" % (dir,pair_param_file),usecols=(0,1),skiprows=1,dtype=int)[2*n_native_pairs + 1::2] - 1
+            param_idx = np.loadtxt("%s/%s" % (dir,pair_param_file),usecols=(2,),skiprows=1,dtype=int)[2*n_native_pairs + 1::2]
+            pair_type = np.loadtxt("%s/%s" % (dir,pair_param_file),usecols=(3,),skiprows=1,dtype=int)[2*n_native_pairs + 1::2]
+            eps = np.loadtxt("%s/%s" % (dir,model_param_file),skiprows=1)[2*n_native_pairs + 1::2]
+
+            contact_params = [] 
+            with open("%s/%s" % (dir,pair_param_file),"r") as fin:
+                all_lines = fin.readlines()[2*n_native_pairs + 2::2]
+                for i in range(pairs.shape[0]):
+                    temp_params = all_lines[i].rstrip("\n").split()[4:]
+                    contact_params.append(tuple([ float(x) for x in temp_params]))
+    return pairs,pair_type,eps,contact_params
 
 ######################################################################
 # Functions to loop over trajectories in chunks

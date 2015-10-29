@@ -62,37 +62,10 @@ if __name__ == "__main__":
     # Data source
     trajfiles = [ "%s" % (x.rstrip("\n")) for x in open(trajsfile,"r").readlines() ]
     dir = os.path.dirname(trajfiles[0])
-    n_native_pairs = len(open("%s/native_contacts.ndx" % dir).readlines()) - 1
-    if (not os.path.exists("%s/pairwise_params" % dir)) or (not os.path.exists("%s/model_params" % dir)):
-        raise IOError("%s/pairwise_params or %s/model_params does not exist!" % (dir,dir))
-    else:
-        # Get potential parameters. Assumes gaussian contacts. Doesn't include
-        # exluded volume terms. Excluded volume terms blow up the calculation,
-        # but ignoring them is not large a large effect.
-        if contacts == "native":
-            pairs = np.loadtxt("%s/pairwise_params" % dir,usecols=(0,1),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2] - 1
-            param_idx = np.loadtxt("%s/pairwise_params" % dir,usecols=(2,),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2]
-            pair_type = np.loadtxt("%s/pairwise_params" % dir,usecols=(3,),skiprows=1,dtype=int)[1:2*n_native_pairs + 1:2]
-            eps = np.loadtxt("%s/model_params" % dir,skiprows=1)[1:2*n_native_pairs + 1:2]
 
-            contact_params = [] 
-            with open("%s/pairwise_params" % dir,"r") as fin:
-                all_lines = fin.readlines()[2:2*n_native_pairs + 2:2]
-                for i in range(pairs.shape[0]):
-                    temp_params = all_lines[i].rstrip("\n").split()[4:]
-                    contact_params.append(tuple([ float(x) for x in temp_params]))
-        else:
-            pairs = np.loadtxt("%s/pairwise_params" % dir,usecols=(0,1),skiprows=1,dtype=int)[2*n_native_pairs + 1::2] - 1
-            param_idx = np.loadtxt("%s/pairwise_params" % dir,usecols=(2,),skiprows=1,dtype=int)[2*n_native_pairs + 1::2]
-            pair_type = np.loadtxt("%s/pairwise_params" % dir,usecols=(3,),skiprows=1,dtype=int)[2*n_native_pairs + 1::2]
-            eps = np.loadtxt("%s/model_params" % dir,skiprows=1)[2*n_native_pairs + 1::2]
+    
+    util.get_pair_energy_params(dir)
 
-            contact_params = [] 
-            with open("%s/pairwise_params" % dir,"r") as fin:
-                all_lines = fin.readlines()[2*n_native_pairs + 2::2]
-                for i in range(pairs.shape[0]):
-                    temp_params = all_lines[i].rstrip("\n").split()[4:]
-                    contact_params.append(tuple([ float(x) for x in temp_params]))
 
     # Parameterize contact energy function.
     energy_function = util.get_contact_energy_function(pairs,pair_type,eps,contact_params,periodic=periodic)
