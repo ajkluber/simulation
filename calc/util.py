@@ -272,7 +272,8 @@ def bin_multiple_coordinates_for_traj(trajfile,obs_by_bin,count_by_bin,observabl
         for n in range(bin_edges.shape[0]):
             frames_in_this_bin = (coord >= bin_edges[n][0]) & (coord < bin_edges[n][1])
             if frames_in_this_bin.any():
-                obs_by_bin[n,:] += np.sum(obs_temp[frames_in_this_bin,:],axis=0)
+                #obs_by_bin[n,:] += np.sum(obs_temp[frames_in_this_bin,:],axis=0)
+                obs_by_bin[n,:] += np.sum(obs_temp[frames_in_this_bin],axis=0)  # Does this syntax work if obs_temp has a second dimension?
                 count_by_bin[n] += float(sum(frames_in_this_bin))
         start_idx += chunk_size
     return obs_by_bin,count_by_bin

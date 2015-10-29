@@ -101,10 +101,12 @@ if __name__ == "__main__":
     periodic = args.periodic
     bincoordname = coordfile.split(".")[0]
 
-    if args.saveas is None:
-        varcoordname = {"native":"dEnat2","nonnative":"dEnon2"}[args.contacts]
-    else:
-        varcoordname = args.saveas
+    #varcoordname = {"native":"dEnat2","nonnative":"dEnon2"}[args.contacts]
+    varcoordname = {"native":"Enative","nonnative":"Enonnative"}[args.contacts]
+    #if args.saveas is None:
+    #    varcoordname = {"native":"dEnat2","nonnative":"dEnon2"}[args.contacts]
+    #else:
+    #    varcoordname = args.saveas
 
     trajfiles = [ "%s" % (x.rstrip("\n")) for x in open(trajsfile,"r").readlines() ]
     dir = os.path.dirname(trajfiles[0])
@@ -118,24 +120,36 @@ if __name__ == "__main__":
 
     n_obs = 1
  
-    # Calculate binned energy
-    bin_edges, avgE_by_bin = util.bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,energy_function,n_obs,bins,topology,chunksize)
+    if os.path.exists("binned_%s_vs_%s/%s_vs_bin.dat" % (varcoordname,bincoordname,varcoordname)):
+        # Load binned energy
+        os.chdir("binned_%s_vs_%s" % (varcoordname,bincoordname))
+        avgE_by_bin = np.loadtxt("%s_vs_bin.dat" % varcoordname)
+        bin_edges = np.loadtxt("bin_edges.dat",bin_edges)
+        os.chdir("..")
+    else:
+        # Calculate binned energy
+        bin_edges, avgE_by_bin = util.bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,energy_function,n_obs,bins,topology,chunksize)
+        print "calculation took: %.2f" % ((time.time() - starttime)/60.)
 
     # Calculate binned variance
-
-    # parameterize
-
-    #bin_edges, avgqi_by_bin = calculate_binned_energy_vs_q(args)
+    # TODO
 
     cwd = os.getcwd()
     if args.savepath is not None:
         os.chdir(args.savepath)
+    # Save  
+    if not os.path.exists("binned_%s_vs_%s" % (varcoordname,bincoordname)):
+        os.mkdir("binned_%s_vs_%s" % (varcoordname,bincoordname))
+    os.chdir("binned_%s_vs_%s" % (varcoordname,bincoordname))
+    np.savetxt("%s_vs_bin.dat" % varcoordname,avgE_by_bin)
+    np.savetxt("bin_edges.dat",bin_edges)
+    os.chdir("..")
 
     # Save  
-    if not os.path.exists("binned_%s_vs_%s" % *(bincoordname,varcoordname)):
-        os.mkdir("binned_%s_vs_%s" % (bincoordname,varcoordname))
-    os.chdir("binned_%s_vs_%s" % (bincoordname,varcoordname))
-    np.savetxt("%s_vs_bin.dat", % bincoordname,avgqi_by_bin)
+    if not os.path.exists("binned_d%s2_vs_%s" % (varcoordname,bincoordname)):
+        os.mkdir("binned_d%s2_vs_%s" % (varcoordname,bincoordname))
+    os.chdir("binned_d%s2_vs_%s" % (varcoordname,bincoordname))
+    np.savetxt("d%s2_vs_bin.dat" % varcoordname,avgdE2_by_bin)
     np.savetxt("bin_edges.dat",bin_edges)
+    os.chdir("..")
     os.chdir(cwd)
-    print "Took: %.2f" % ((time.time() - starttime)/60.)
