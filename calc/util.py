@@ -45,6 +45,16 @@ def get_pair_contact_function(pairs,function_type,contact_params,periodic=False)
             return contact_function(r,contact_params)
     return obs_function
 
+def get_covariance_function(obs1,obs2,avgobs1,avgobs2):
+    """Returns a function that takes a MDTraj Trajectory object"""
+    def obs_function(trajchunk):
+        O1 = obs1(trajchunk)
+        O2 = obs2(trajchunk)
+        O1avg = obs1avg(trajchunk)
+        O2avg = obs2avg(trajchunk)
+        return np.sum((O1 - O1avg)*(O2 - O2avg))
+    return obs_function
+
 def get_edwards_anderson_observable(pairs,function_type,contact_params,periodic=False):
     """ NOT DONE. Returns a function that takes two MDTraj Trajectory objects"""
     contact_function = supported_functions[function_type]
@@ -134,6 +144,7 @@ def calc_coordinate_for_traj(trajfile,observable_fun,topology,chunksize):
         obs_traj.extend(observable_fun(trajchunk))
     return np.array(obs_traj)
 
+
 def calc_coordinate_multiple_trajs(trajfiles,observable_fun,topology,chunksize,save_coord_as=None,collect=True,savepath=None):
     """Loop over directories and calculate 1D observable"""
 
@@ -151,10 +162,40 @@ def calc_coordinate_multiple_trajs(trajfiles,observable_fun,topology,chunksize,s
             obs_all.append(obs_traj)
     return obs_all
 
+def bin_covariance_multiple_coordinates_for_traj(trajfile,covar_by_bin,count_by_bin,
+        observable1,observable2,obs1_bin_avg,obs2_bin_avg,
+        binning_coord,bin_edges,topology,chunksize):
+    """Loop over chunks of a trajectory to bin a set of observables along a 1D coordinate"""
+    ## TODO test cases:
+    # - Two vector-valued observables
+    # - One single-valued obesrvable and one-vector-valued observable.
+    # - Two single-valued observables
+
+    # In order to save memory we loop over trajectories in chunks.
+    start_idx = 0
+    for trajchunk in md.iterload(trajfile,top=topology,chunk=chunksize):
+        # Calculate observable for trajectory chunk
+        obs1_temp = observable1(trajchunk)
+        obs2_temp = observable2(trajchunk)
+        chunk_size = trajchunk.n_frames
+        coord = binning_coord[start_idx:start_idx + chunk_size]
+        # Sort frames into bins along binning coordinate.
+        for n in range(bin_edges.shape[0]):
+            frames_in_this_bin = (coord >= bin_edges[n][0]) & (coord < bin_edges[n][1])
+            if frames_in_this_bin.any():
+                # Compute the covariance
+                delta_obs1 = obs1_temp[frames_in_this_bin] - obs1_bin_avg[n]
+                delta_obs2 = obs2_temp[frames_in_this_bin] - obs2_bin_avg[n]
+    
+                # How should result be collected depending on the number of return values?
+                covar_by_bin[n,:,:] = np.dot(delta_obs1.T,delta_obs2)
+                count_by_bin[n] += float(sum(frames_in_this_bin))
+        start_idx += chunk_size
+    return obs_by_bin,count_by_bin
+
 def bin_multiple_coordinates_for_traj(trajfile,obs_by_bin,count_by_bin,observable_fun,binning_coord,bin_edges,topology,chunksize):
     """Loop over chunks of a trajectory to bin a set of observables along a 1D coordinate"""
     # In order to save memory we loop over trajectories in chunks.
-    obs_traj = []
     start_idx = 0
     for trajchunk in md.iterload(trajfile,top=topology,chunk=chunksize):
         # Calculate observable for trajectory chunk
@@ -169,6 +210,7 @@ def bin_multiple_coordinates_for_traj(trajfile,obs_by_bin,count_by_bin,observabl
                 count_by_bin[n] += float(sum(frames_in_this_bin))
         start_idx += chunk_size
     return obs_by_bin,count_by_bin
+
 
 def bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,observable_function,n_obs,bins,topology,chunksize):
     """Bin multiple coordinates by looping over trajectories
@@ -199,6 +241,7 @@ def bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,observab
                 observable_function,binning_coord[n],bin_edges,"%s/%s" % (dir,topology),chunksize)
     avgobs_by_bin = (obs_by_bin.T/count_by_bin).T
     return bin_edges,avgobs_by_bin
+
 
 global supported_functions
 supported_functions = {"step":step_contact,"tanh":tanh_contact,"w_tanh":weighted_tanh_contact}
