@@ -1,46 +1,38 @@
 import os
 import argparse
+import logging
 import numpy as np
 
 import simulation.calc.util as util
-import simulation.calc.binned_contacts as binned_contacts
 
-def calculate_binned_contacts_vs_q(args):
-    trajsfile = args.trajs
-    function = args.function 
-    coordfile = args.coordfile
-    coordname = coordfile.split(".")[0]
-    bins = args.bins
-    chunksize = args.chunksize
-    topology = args.topology
-    periodic = args.periodic
- 
-    # Data source
-    trajfiles = [ "%s" % x.rstrip("\n") for x in open(trajsfile,"r").readlines() ]
-    dir = os.path.dirname(trajfiles[0])
+def setup_logger(args):
+    """Log starting information"""
+    cwd = os.getcwd()
+    if args.savepath is not None:
+        os.chdir(args.savepath)
+    if not os.path.exists("binned_d%s2_vs_%s" % (args.varcoordname,args.bincoordname)):
+        os.mkdir("binned_d%s2_vs_%s" % (args.varcoordname,args.bincoordname))
 
-    # Parameterize contact-based reaction coordinate
-    pairs, contact_params = util.get_contact_params(dir,args)
-    coord_sources = [  "%s/%s" % (os.path.dirname(trajfiles[i]),coordfile) for i in range(len(trajfiles)) ]
-
-    if not all([ os.path.exists(x) for x in coord_sources ]):
-        # Parameterize contact-based reaction coordinate
-        contact_function = util.get_sum_contact_function(pairs,function,contact_params,periodic=periodic)
-
-        # Calculate contact function over directories
-        contacts = util.calc_coordinate_multiple_trajs(trajfiles,contact_function,topology,chunksize,save_coord_as=args.coordfile,savepath=args.savepath,collect=True)
-    else:
-        # Load precalculated coordinate
-        contacts = [ np.loadtxt(coord_sources[i]) for i in range(len(coord_sources)) ]
-
-    # Parameterize pairwise contact function
-    pairwise_contact_function = util.get_pair_contact_function(pairs,function,contact_params,periodic=periodic)
-
-    # Calculate pairwise contacts over directories 
-    bin_edges,avgqi_by_bin = util.bin_multiple_coordinates_for_multiple_trajs(trajfiles,
-            contacts,pairwise_contact_function,pairs.shape[0],bins,topology,chunksize)
-
-    return bin_edges, avgqi_by_bin
+    os.chdir("binned_d%s2_vs_%s" % (args.varcoordname,args.bincoordname))
+    logging.basicConfig(filename="d%s2_bin_avg.log" % args.varcoordname,
+                        filemode="w",
+                        format="%(levelname)s:%(name)s:%(asctime)s: %(message)s",
+                        datefmt="%H:%M:%S",
+                        level=logging.DEBUG)
+    logger = logging.getLogger('binned_variance')
+    logger.info("data source          = %s" % args.dir)
+    logger.info("input parameters:")
+    logger.info("  trajsfile          = %s" % args.trajs)
+    logger.info("  trajfiles          = %s" % args.trajfiles.__str__())
+    logger.info("  binning_coordinate = %s" % args.coordfile)
+    logger.info("  bin_coord_name     = %s" % args.bincoordname)
+    logger.info("  var_coord_name     = %s" % args.varcoordname)
+    logger.info("  bins               = %s" % args.bins.__str__())
+    logger.info("  topology           = %s" % args.topology)
+    logger.info("  chunksize          = %s" % args.chunksize)
+    logger.info("  periodic           = %s" % args.periodic)
+    os.chdir(cwd)
+    return logger
 
 def get_args():
     parser = argparse.ArgumentParser(description='.')
@@ -88,6 +80,7 @@ def get_args():
 
 
 if __name__ == "__main__":
+
     import time
     starttime = time.time()
 
@@ -100,56 +93,70 @@ if __name__ == "__main__":
     chunksize = args.chunksize
     periodic = args.periodic
     bincoordname = coordfile.split(".")[0]
+    n_obs = 1
+    n_obs1 = 1
+    n_obs2 = 1
 
-    #varcoordname = {"native":"dEnat2","nonnative":"dEnon2"}[args.contacts]
     varcoordname = {"native":"Enative","nonnative":"Enonnative"}[args.contacts]
-    #if args.saveas is None:
-    #    varcoordname = {"native":"dEnat2","nonnative":"dEnon2"}[args.contacts]
-    #else:
-    #    varcoordname = args.saveas
 
     trajfiles = [ "%s" % (x.rstrip("\n")) for x in open(trajsfile,"r").readlines() ]
     dir = os.path.dirname(trajfiles[0])
+    args.dir = dir
+    args.trajfiles = trajfiles
+    args.varcoordname = varcoordname
+    args.bincoordname = bincoordname
+
+    logger = setup_logger(args)
 
     # Parameterize contact energy function.
+    logger.info("parameterize pair energy function")
     pairs,pair_type,eps,contact_params = util.get_pair_energy_params(dir,args)
     energy_function = util.get_contact_energy_function(pairs,pair_type,eps,contact_params,periodic=periodic)
 
+    # TODO: compute binning coordinate on the fly if needed.
+    logger.info("loading binning coordinate")
     coord_sources = [  "%s/%s" % (os.path.dirname(trajfiles[i]),coordfile) for i in range(len(trajfiles)) ]
     binning_coord = [ np.loadtxt(coord_sources[i]) for i in range(len(coord_sources)) ]
 
-    n_obs = 1
- 
     if os.path.exists("binned_%s_vs_%s/%s_vs_bin.dat" % (varcoordname,bincoordname,varcoordname)):
         # Load binned energy
+        logger.info("loading E_bin_avg")
         os.chdir("binned_%s_vs_%s" % (varcoordname,bincoordname))
-        avgE_by_bin = np.loadtxt("%s_vs_bin.dat" % varcoordname)
+        E_bin_avg = np.loadtxt("%s_vs_bin.dat" % varcoordname)
         bin_edges = np.loadtxt("bin_edges.dat",bin_edges)
         os.chdir("..")
     else:
         # Calculate binned energy
-        bin_edges, avgE_by_bin = util.bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,energy_function,n_obs,bins,topology,chunksize)
+        logger.info("calculating E_bin_avg")
+        bin_edges, E_bin_avg = util.bin_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,energy_function,n_obs,bins,topology,chunksize)
         print "calculation took: %.2f" % ((time.time() - starttime)/60.)
 
-    # Calculate binned variance
-    # TODO
+        # Save  
+        if args.savepath is not None:
+            os.chdir(args.savepath)
+        logger.info("saving E_bin_avg")
+        if not os.path.exists("binned_%s_vs_%s" % (varcoordname,bincoordname)):
+            os.mkdir("binned_%s_vs_%s" % (varcoordname,bincoordname))
+        os.chdir("binned_%s_vs_%s" % (varcoordname,bincoordname))
+        np.savetxt("%s_vs_bin.dat" % varcoordname,E_bin_avg)
+        np.savetxt("bin_edges.dat",bin_edges)
+        os.chdir(cwd)
 
-    cwd = os.getcwd()
+    # Calculate binned variance
+    logger.info("calculating dE2_bin_avg")
+    dE2_bin_avg = util.bin_covariance_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coord,
+        energy_function,energy_function,E_bin_avg,E_bin_avg,
+        n_obs1,n_obs2,bin_edges,topology,chunksize)
+
+    # Save  
     if args.savepath is not None:
         os.chdir(args.savepath)
-    # Save  
-    if not os.path.exists("binned_%s_vs_%s" % (varcoordname,bincoordname)):
-        os.mkdir("binned_%s_vs_%s" % (varcoordname,bincoordname))
-    os.chdir("binned_%s_vs_%s" % (varcoordname,bincoordname))
-    np.savetxt("%s_vs_bin.dat" % varcoordname,avgE_by_bin)
-    np.savetxt("bin_edges.dat",bin_edges)
-    os.chdir("..")
-
-    # Save  
     if not os.path.exists("binned_d%s2_vs_%s" % (varcoordname,bincoordname)):
         os.mkdir("binned_d%s2_vs_%s" % (varcoordname,bincoordname))
+    logger.info("saving dE2_bin_avg")
     os.chdir("binned_d%s2_vs_%s" % (varcoordname,bincoordname))
-    np.savetxt("d%s2_vs_bin.dat" % varcoordname,avgdE2_by_bin)
+    for i in range(dE2_bin_avg.shape[0]):
+        np.savetxt("d%s2_vs_bin_%d.dat" % (varcoordname,i),dE2_bin_avg[i])
     np.savetxt("bin_edges.dat",bin_edges)
-    os.chdir("..")
     os.chdir(cwd)
+    logger.info("finished")

@@ -224,6 +224,9 @@ def bin_covariance_multiple_coordinates_for_traj(trajfile,covar_by_bin,count_by_
 
     # In order to save memory we loop over trajectories in chunks.
     start_idx = 0
+    import time
+    starttime = time.time()
+    counter = 1
     for trajchunk in md.iterload(trajfile,top=topology,chunk=chunksize):
         # Calculate observable for trajectory chunk
         obs1_temp = observable1(trajchunk)
@@ -241,6 +244,13 @@ def bin_covariance_multiple_coordinates_for_traj(trajfile,covar_by_bin,count_by_
                 # How should result be collected depending on the number of return values?
                 covar_by_bin[n,:,:] = np.dot(delta_obs1.T,delta_obs2)
                 count_by_bin[n] += float(sum(frames_in_this_bin))
+        if counter == 10: 
+            print "Time to calculate 10 chunks: %.2f" % ((time.time() - starttime)/60.)
+            print "chunksize = %d" % chunk_size
+            print "start_idx = %d" % start_idx
+            import pdb
+            pdb.set_trace()
+        counter += 1
         start_idx += chunk_size
     return covar_by_bin,count_by_bin
 
@@ -257,7 +267,7 @@ def bin_covariance_multiple_coordinates_for_multiple_trajs(trajfiles,binning_coo
                 observable1,observable2,obs1_bin_avg,obs2_bin_avg,
                 binning_coord[n],bin_edges,"%s/%s" % (dir,topology),chunksize)
     avgcovar_by_bin = (covar_by_bin.T/count_by_bin).T
-    return bin_edges,avgcovar_by_bin
+    return avgcovar_by_bin
 
 def bin_multiple_coordinates_for_traj(trajfile,obs_by_bin,count_by_bin,observable_fun,binning_coord,bin_edges,topology,chunksize):
     """Loop over chunks of a trajectory to bin a set of observables along a 1D coordinate"""
