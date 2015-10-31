@@ -96,6 +96,7 @@ if __name__ == "__main__":
     n_obs = 1
     n_obs1 = 1
     n_obs2 = 1
+    cwd = os.getcwd()
 
     varcoordname = {"native":"Enative","nonnative":"Enonnative"}[args.contacts]
 
@@ -123,7 +124,7 @@ if __name__ == "__main__":
         logger.info("loading E_bin_avg")
         os.chdir("binned_%s_vs_%s" % (varcoordname,bincoordname))
         E_bin_avg = np.loadtxt("%s_vs_bin.dat" % varcoordname)
-        bin_edges = np.loadtxt("bin_edges.dat",bin_edges)
+        bin_edges = np.loadtxt("bin_edges.dat")
         os.chdir("..")
     else:
         # Calculate binned energy
@@ -155,8 +156,9 @@ if __name__ == "__main__":
         os.mkdir("binned_d%s2_vs_%s" % (varcoordname,bincoordname))
     logger.info("saving dE2_bin_avg")
     os.chdir("binned_d%s2_vs_%s" % (varcoordname,bincoordname))
-    for i in range(dE2_bin_avg.shape[0]):
-        np.savetxt("d%s2_vs_bin_%d.dat" % (varcoordname,i),dE2_bin_avg[i])
+    #for i in range(dE2_bin_avg.shape[0]):
+    #    np.savetxt("d%s2_vs_bin_%d.dat" % (varcoordname,i),dE2_bin_avg[i])
+    np.savetxt("d%s2_vs_bin.dat" % varcoordname,dE2_bin_avg)
     np.savetxt("bin_edges.dat",bin_edges)
     os.chdir(cwd)
     logger.info("finished")
