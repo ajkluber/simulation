@@ -195,7 +195,6 @@ def calc_coordinate_for_traj(trajfile,observable_fun,topology,chunksize):
         obs_traj.extend(observable_fun(trajchunk))
     return np.array(obs_traj)
 
-
 def calc_coordinate_multiple_trajs(trajfiles,observable_fun,topology,chunksize,save_coord_as=None,collect=True,savepath=None):
     """Loop over directories and calculate 1D observable"""
 
@@ -203,6 +202,8 @@ def calc_coordinate_multiple_trajs(trajfiles,observable_fun,topology,chunksize,s
     for n in range(len(trajfiles)):
         dir = os.path.dirname(trajfiles[n])
         obs_traj = calc_coordinate_for_traj(trajfiles[n],observable_fun,"%s/%s" % (dir,topology),chunksize)
+
+
         if save_coord_as is not None:
             if savepath is not None:
                 basename = os.path.basename(dir)

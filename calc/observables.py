@@ -26,10 +26,10 @@ class ContactObservable(object):
 class TanhContactObservable(ContactObservable):
     """Smoothly increasing tanh contact function"""
 
-    def __init__(self, top, pairs, *args, periodic=False):
-        ContactObservable.__init__(top, pairs, args[0])
+    def __init__(self, top, pairs, r0, widths, periodic=False):
+        ContactObservable.__init__(top, pairs, r0)
         self.prefix_label = "TANHCONTACT"
-        self.widths = self.args[1]
+        self.widths = widths
         self.periodic = periodic
 
     def map(self, traj):
