@@ -131,8 +131,8 @@ class PairEnergy(object):
         self.symbol = "$E_i$"
     
     def map(self,traj):
-        r = mdtraj.compute_distances(traj,self.pairs,periodic=self.periodic)
-        Epair = np.zeros((traj.n_frames,self.dimension),float)
+        r = mdtraj.compute_distances(traj, self.pairs, periodic=self.periodic)
+        Epair = np.zeros((traj.n_frames, self.dimension), float)
         for i in range(self.dimension):
             Vi = get_pair_potential(self.pair_type[i])
             Epair[:,i] = self.eps[i]*Vi(r[:,i],*self.pair_params[i])
@@ -146,14 +146,14 @@ class PairEnergySum(PairEnergy):
         self.symbol = "$E$"
     
     def map(self,traj):
-        r = mdtraj.compute_distances(traj,self.pairs,periodic=self.periodic)
-        Epair = np.zeros((traj.n_frames,self.dimension),float)
+        r = mdtraj.compute_distances(traj, self.pairs, periodic=self.periodic)
+        Epair = np.zeros((traj.n_frames, self.dimension), float)
         for i in range(self.pairs.shape[0]):
             Vi = get_pair_potential(self.pair_type[i])
             Epair[:,0] += self.eps[i]*Vi(r[:,i],*self.pair_params[i])
         return Epair
 
-def calculate_observable(trajfiles,observable,chunksize=1000,collect=True,saveas=None,savepath=None):
+def calculate_observable(trajfiles, observable, chunksize=1000, collect=True, saveas=None, savepath=None):
     """Calculate observable over trajectories"""
 
     obs_all = [] 
@@ -177,7 +177,7 @@ def calculate_observable(trajfiles,observable,chunksize=1000,collect=True,saveas
                 np.savetxt("%s/%s" % (dir,saveas),obs_traj)
     return obs_all
 
-def bin_observable(trajfiles,observable,binning_coord,bin_edges,chunksize=10000):
+def bin_observable(trajfiles, observable, binning_coord, bin_edges, chunksize=10000):
     """Bin observable over trajectories"""
 
     assert len(binning_coord[0].shape) == 1
@@ -185,7 +185,6 @@ def bin_observable(trajfiles,observable,binning_coord,bin_edges,chunksize=10000)
 
     obs_by_bin = np.zeros((bin_edges.shape[0],observable.dimension),float)
     count_by_bin = np.zeros(bin_edges.shape[0],float)
-    counter = 0 
     for i in range(len(trajfiles)):
         start_idx = 0
         for trajchunk in mdtraj.iterload(trajfiles[i],top=observable.top,chunk=chunksize):
@@ -198,11 +197,40 @@ def bin_observable(trajfiles,observable,binning_coord,bin_edges,chunksize=10000)
                     obs_by_bin[n,:] += np.sum(obs_temp[frames_in_this_bin],axis=0)
                     count_by_bin[n] += float(sum(frames_in_this_bin))
             start_idx += chunk_size
-            print "chunk =  %d " % counter 
-            counter += 1
             
     obs_bin_avg = (obs_by_bin.T/count_by_bin).T
     return obs_bin_avg
+
+def bin_observable_covariance(trajfiles, observable1, observable2, obs1_bin_avg, obs2_bin_avg, 
+            binning_coord, bin_edges, chunksize=10000):
+    """Covariance bin observable over trajectories"""
+
+    assert len(binning_coord[0].shape) == 1
+    assert bin_edges.shape[1] == 2
+
+    covar_bin_avg = np.zeros((bin_edges.shape[0],observable1.dimension,observable2.dimension),float)
+    count_by_bin = np.zeros(bin_edges.shape[0],float)
+    counter = 0 
+    for i in range(len(trajfiles)):
+        start_idx = 0
+        for trajchunk in mdtraj.iterload(trajfiles[i],top=observable1.top,chunk=chunksize):
+            obs1_temp = observable1.map(trajchunk)
+            obs2_temp = observable2.map(trajchunk)
+            chunk_size = trajchunk.n_frames
+            coord = binning_coord[i][start_idx:start_idx + chunk_size]
+            for n in range(bin_edges.shape[0]):
+                frames_in_this_bin = (coord >= bin_edges[n][0]) & (coord < bin_edges[n][1])
+                if np.any(frames_in_this_bin):
+                    covar_bin_avg[n,:,:] += np.dot((obs1_temp[frames_in_this_bin] - obs1_bin_avg[n]).T,(obs2_temp[frames_in_this_bin] - obs2_bin_avg[n]))
+                    count_by_bin[n] += float(sum(frames_in_this_bin))
+            start_idx += chunk_size
+            print "chunk =  %d " % counter 
+            counter += 1
+    for n in range(bin_edges.shape[0]):
+        if count_by_bin[n] > 0:
+            covar_bin_avg[n,:,:] /= count_by_bin[n]
+    return covar_bin_avg
+
 
 if __name__ == "__main__":
     trajfiles = [ x.rstrip("\n") for x in open("ticatrajs","r").readlines() ]
@@ -253,10 +281,14 @@ if __name__ == "__main__":
 
     #def __init__(self, top, pairs, pair_type, eps, pair_params, periodic=False):
     paireng_obs = PairEnergy(top, pairs, pair_type, eps, nat_pair_params)
-    #pairengsum_obs = PairEnergySum(top, pairs, pair_type, eps, nat_pair_params)
+    pairengsum_obs = PairEnergySum(top, pairs, pair_type, eps, nat_pair_params)
     #Enat = calculate_observable(trajfiles, pairengsum_obs)
-    Enat_bin_avg = bin_observable(trajfiles, paireng_obs, qtanh, bin_edges)
+    Enatpair_bin_avg = bin_observable(trajfiles, paireng_obs, qtanh, bin_edges)
+    #Enat_bin_avg = bin_observable(trajfiles, pairengsum_obs, qtanh, bin_edges)
 
+    #dEnat_bin_avg = bin_observable_covariance(trajfiles, pairengsum_obs, pairengsum_obs, Enat_bin_avg, Enat_bin_avg, qtanh, bin_edges)
+    #dEnat2_bin_avg = bin_observable_covariance(trajfiles, pairengsum_obs, pairengsum_obs, Enat_bin_avg, Enat_bin_avg, qtanh, bin_edges)
+    dEnatpair2_bin_avg = bin_observable_covariance(trajfiles, paireng_obs, paireng_obs, Enatpair_bin_avg, Enatpair_bin_avg, qtanh, bin_edges)
 
 
 
