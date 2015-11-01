@@ -131,7 +131,7 @@ class PairEnergy(object):
         self.symbol = "$E_i$"
     
     def map(self,traj):
-        r = md.compute_distances(traj,self.pairs,periodic=self.periodic)
+        r = mdtraj.compute_distances(traj,self.pairs,periodic=self.periodic)
         Epair = np.zeros((traj.n_frames,self.dimension),float)
         for i in range(self.dimension):
             Vi = get_pair_potential(self.pair_type[i])
@@ -146,9 +146,9 @@ class PairEnergySum(PairEnergy):
         self.symbol = "$E$"
     
     def map(self,traj):
-        r = md.compute_distances(traj,self.pairs,periodic=self.periodic)
+        r = mdtraj.compute_distances(traj,self.pairs,periodic=self.periodic)
         Epair = np.zeros((traj.n_frames,self.dimension),float)
-        for i in range(self.dimension):
+        for i in range(self.pairs.shape[0]):
             Vi = get_pair_potential(self.pair_type[i])
             Epair[:,0] += self.eps[i]*Vi(r[:,i],*self.pair_params[i])
         return Epair
@@ -201,34 +201,72 @@ def bin_observable(trajfiles,observable,binning_coord,bin_edges,chunksize=10000)
             print "chunk =  %d " % counter 
             counter += 1
             
-
     obs_bin_avg = (obs_by_bin.T/count_by_bin).T
     return obs_bin_avg
 
 if __name__ == "__main__":
     trajfiles = [ x.rstrip("\n") for x in open("ticatrajs","r").readlines() ]
     dir = os.path.dirname(trajfiles[0])
+
+    # parameterize contact function
     pairs = np.loadtxt("%s/native_contacts.ndx" % dir, skiprows=1, dtype=int) - 1
     n_native_pairs = pairs.shape[0]
-    r0 = np.loadtxt("%s/pairwise_params" % dir, usecols=(4,))[1:2*n_native_pairs:2] + 0.1
+    r0 = np.loadtxt("%s/pairwise_params" % dir, usecols=(4,))[1:2*n_native_pairs:2]
     top = "%s/Native.pdb" % dir
     widths = 0.05*np.ones(n_native_pairs, float)
 
-    qtanhsumobs = TanhContactSum(top, pairs, r0, widths)
-    #qstepobs = StepContactSum(top, pairs, r0)
-    #qstepobs = StepContacts(top, pairs, r0)
-    qtanhobs = TanhContacts(top, pairs, r0, widths)
-
-    #qtanh = calculate_observable(trajfiles, qtanhsumobs)
+    ########################################
+    # TESTING CONTACT OBSERVABLES
+    ########################################
+#    r0_cont = r0 + 0.1
+#    qtanhsum_obs = TanhContactSum(top, pairs, r0_cont, widths)
+#    #qstep_obs = StepContactSum(top, pairs, r0_cont)
+#    #qstep_obs = StepContacts(top, pairs, r0_cont)
+#    qtanh_obs = TanhContacts(top, pairs, r0_cont, widths)
+#
+#    #qtanh = calculate_observable(trajfiles, qtanhsum_obs)
     qtanh = [ np.loadtxt("%s/Qtanh_0_05.dat" % os.path.dirname(x)) for x in trajfiles ]
-
+#
     n, bins= np.histogram(qtanh,bins=30)
     bin_edges = np.array([ [bins[i], bins[i+1]] for i in range(len(bins) - 1 ) ])
-    
-    #qstep_bin_avg = bin_observable(trajfiles, qtanhobs, qtanh, bin_edges)
-    qtanh_bin_avg = bin_observable(trajfiles, qtanhobs, qtanh, bin_edges)
+#    
+#    # Works!
+#    #qstep_bin_avg = bin_observable(trajfiles, qtanh_obs, qtanh, bin_edges)
+#    qtanh_bin_avg = bin_observable(trajfiles, qtanh_obs, qtanh, bin_edges)
 
 
-    #
-    #pair_type = np.loadtxt("%s/pairwise_params" % dir, usecols=(4,))[1:2*n_native_pairs:2]
-    #eps = np.loadtxt("%s/model_params" % dir)[1:2*n_native_pairs:2]
+    ########################################
+    # TESTING PAIRWISE ENERGY OBSERVABLES
+    ########################################
+
+    # parameterize pair energy observable
+    pair_type = np.loadtxt("%s/pairwise_params" % dir, usecols=(3,), dtype=int)[1:2*n_native_pairs:2]
+    eps = np.loadtxt("%s/model_params" % dir)[1:2*n_native_pairs:2]
+
+    pair_params = []
+    for line in open("%s/pairwise_params" % dir,"r"):
+        if line.startswith("#"):
+            continue
+        else:
+            pair_params.append(tuple([ float(x) for x in line.split()[4:] ]))
+    nat_pair_params = pair_params[1:2*n_native_pairs:2]
+
+    #def __init__(self, top, pairs, pair_type, eps, pair_params, periodic=False):
+    paireng_obs = PairEnergy(top, pairs, pair_type, eps, nat_pair_params)
+    #pairengsum_obs = PairEnergySum(top, pairs, pair_type, eps, nat_pair_params)
+    #Enat = calculate_observable(trajfiles, pairengsum_obs)
+    Enat_bin_avg = bin_observable(trajfiles, paireng_obs, qtanh, bin_edges)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
