@@ -22,6 +22,24 @@ def _describe_atom(topology, index):
     at = traj.topology.atom(index)
     return "%s %i %s %i" % (at.residue.name, at.residue.index, at.name, at.index)
 
+class Distances(object):
+    def __init__(self, top, pairs, periodic=False):
+        self.prefix_label = "DISTANCE"
+        self.top = top
+        self.pairs = pairs
+        self.periodic = periodic
+
+    def describe(self):
+        labels = ["%s %s - %s" % (self.prefix_label,
+                                  _describe_atom(self.top, pair[0]),
+                                  _describe_atom(self.top, pair[1]))
+                  for pair in self.pairs]
+        return labels
+
+    def map(self, traj):
+        return mdtraj.compute_distances(traj, self.pairs, periodic=self.periodic)
+    
+
 class Contacts(object):
     def __init__(self, top, pairs, r0):
         self.prefix_label = "CONTACT"
