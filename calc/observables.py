@@ -54,8 +54,32 @@ class Contacts(object):
                   for pair in self.pairs]
         return labels
 
+    def map(self, traj):
+        raise NotImplementedError
+
 class TanhContacts(Contacts):
-    """Smoothly increasing tanh contact function"""
+    """Smoothly increasing tanh contact function 
+
+    Parameters
+    ----------
+    top : str
+        Name of structure file that mdtraj can use as a topology. e.g. a pdb
+        file.
+    
+    pairs : np.ndarray (n_pairs, 2)
+        List of atom pairs to calculated contacts between. 0-indexed.
+
+    r0 : np.ndarray (n_pairs) or float
+        List of distances where the corresponding pair is in contact.
+
+    widths : np.ndarray (n_pairs) or float
+        Scale over which contact function switches from not in-contact 
+        to in-contact.
+
+    periodic : bool, opt.
+        Use miminum image convention when calculating distances with mdtraj. 
+        See mdtraj.compute_distances for more details.
+    """
 
     def __init__(self, top, pairs, r0, widths, periodic=False):
         Contacts.__init__(self, top, pairs, r0)
@@ -70,7 +94,28 @@ class TanhContacts(Contacts):
         return 0.5*(np.tanh(2.*(self.r0 - r)/self.widths) + 1)
 
 class TanhContactSum(TanhContacts):
-    """Sum of tanh contacts"""
+    """Sum of tanh contacts
+
+    Parameters
+    ----------
+    top : str
+        Name of structure file that mdtraj can use as a topology. e.g. a pdb
+        file.
+    
+    pairs : np.ndarray (n_pairs, 2)
+        List of atom pairs to calculated contacts between. 0-indexed.
+
+    r0 : np.ndarray (n_pairs) or float
+        List of distances where the corresponding pair is in contact.
+
+    widths : np.ndarray (n_pairs) or float
+        Scale over which contact function switches from not in-contact 
+        to in-contact.
+
+    periodic : bool, opt.
+        Use miminum image convention when calculating distances with mdtraj. 
+        See mdtraj.compute_distances for more details.
+    """
 
     def __init__(self, top, pairs, r0, widths, periodic=False):
         TanhContacts.__init__(self, top, pairs, r0, widths, periodic=periodic)
@@ -83,7 +128,31 @@ class TanhContactSum(TanhContacts):
         return np.sum(0.5*(np.tanh(2.*(self.r0 - r)/self.widths) + 1),axis=1)
 
 class WeightedTanhContacts(TanhContacts):
-    """Weighted tanh contacts"""
+    """Weighted tanh contacts
+
+    Parameters
+    ----------
+    top : str
+        Name of structure file that mdtraj can use as a topology. e.g. a pdb
+        file.
+    
+    pairs : np.ndarray (n_pairs, 2)
+        List of atom pairs to calculated contacts between. 0-indexed.
+
+    r0 : np.ndarray (n_pairs) or float
+        List of distances where the corresponding pair is in contact.
+
+    widths : np.ndarray (n_pairs) or float
+        Scale over which contact function switches from not in-contact 
+        to in-contact.
+
+    weights : np.ndarray (n_pairs) or float
+        Weights to multiple each contact with.
+
+    periodic : bool, opt.
+        Use miminum image convention when calculating distances with mdtraj. 
+        See mdtraj.compute_distances for more details.
+    """
 
     def __init__(self, top, pairs, r0, widths, weights, periodic=False):
         TanhContacts.__init__(self, top, pairs, r0, widths, periodic=periodic)
@@ -97,7 +166,31 @@ class WeightedTanhContacts(TanhContacts):
         return self.weights*0.5*(np.tanh(2.*(self.r0 - r)/self.widths) + 1)
 
 class WeightedTanhContactSum(WeightedTanhContacts):
-    """Sum of weighted tanh contacts"""
+    """Sum of weighted tanh contacts
+
+    Parameters
+    ----------
+    top : str
+        Name of structure file that mdtraj can use as a topology. e.g. a pdb
+        file.
+    
+    pairs : np.ndarray (n_pairs, 2)
+        List of atom pairs to calculated contacts between. 0-indexed.
+
+    r0 : np.ndarray (n_pairs) or float
+        List of distances where the corresponding pair is in contact.
+
+    widths : np.ndarray (n_pairs) or float
+        Scale over which contact function switches from not in-contact 
+        to in-contact.
+
+    weights : np.ndarray (n_pairs) or float
+        Weights to multiple each contact with.
+
+    periodic : bool, opt.
+        Use miminum image convention when calculating distances with mdtraj. 
+        See mdtraj.compute_distances for more details.
+    """
 
     def __init__(self, top, pairs, r0, widths, weights, periodic=False):
         WeightedTanhContacts.__init__(self, top, pairs, r0, widths, weights, periodic=periodic)
@@ -110,7 +203,20 @@ class WeightedTanhContactSum(WeightedTanhContacts):
         return np.sum(self.weights*0.5*(np.tanh(2.*(self.r0 - r)/self.widths) + 1),axis=1)
 
 class StepContacts(Contacts):
-    """Step function contacts"""
+    """Step function contacts
+
+    Parameters
+    ----------
+    top : str
+        Name of structure file that mdtraj can use as a topology. e.g. a pdb
+        file.
+    
+    pairs : np.ndarray (n_pairs, 2)
+        List of atom pairs to calculated contacts between. 0-indexed.
+
+    r0 : np.ndarray (n_pairs) or float
+        List of distances where the corresponding pair is in contact.
+    """
 
     def __init__(self, top, pairs, r0, periodic=False):
         Contacts.__init__(self, top, pairs, r0)
@@ -124,7 +230,20 @@ class StepContacts(Contacts):
         return (r <= self.r0).astype(int)
 
 class StepContactSum(StepContacts):
-    """Sum of step function contacts"""
+    """Sum of step function contacts
+
+    Parameters
+    ----------
+    top : str
+        Name of structure file that mdtraj can use as a topology. e.g. a pdb
+        file.
+    
+    pairs : np.ndarray (n_pairs, 2)
+        List of atom pairs to calculated contacts between. 0-indexed.
+
+    r0 : np.ndarray (n_pairs) or float
+        List of distances where the corresponding pair is in contact.
+    """
 
     def __init__(self, top, pairs, r0, periodic=False):
         StepContacts.__init__(self, top, pairs, r0, periodic=periodic)
@@ -138,6 +257,7 @@ class StepContactSum(StepContacts):
 
 class PairEnergy(object):
     """Pairwise energy"""
+
     def __init__(self, top, pairs, pair_type, eps, pair_params, periodic=False):
         self.top = top
         self.pairs = pairs
@@ -158,6 +278,7 @@ class PairEnergy(object):
 
 class PairEnergySum(PairEnergy):
     """Sum of pairwise energy"""
+
     def __init__(self, top, pairs, pair_type, eps, pair_params, periodic=False):
         PairEnergy.__init__(self, top, pairs, pair_type, eps, pair_params, periodic=periodic)
         self.dimension = 1
@@ -172,12 +293,43 @@ class PairEnergySum(PairEnergy):
         return Epair
 
 def calculate_observable(trajfiles, observable, chunksize=1000, collect=True, saveas=None, savepath=None):
-    """Calculate observable over trajectories"""
+    """Calculate observable over trajectories
+
+    Parameters
+    ----------
+    trajfiles : list
+        List of trajectory file names to process. Can be full path to file. 
+
+    observable : object
+        A function that takes in an MDtraj trajectory object and returns a
+        number or an array.
+
+    chunksize : int, opt.
+        Trajectories are processed in chunks. chunksize sets the number of
+        frames in a chunk. Default: 10000
+
+    collect : bool, opt.
+        Collect the timeseries of the observable to be returned. Defualt: True.
+
+    saveas : str, opt.
+        Filename with to save observable timeseries. Default: None; do not save.
+
+    savepath : str, opt.
+        Path to save observable timeseries if different than location of
+        trajetory file. Default: save next to trajectory.
+
+    Returns
+    -------
+    obs_all : list
+        If collect is True then this returns a list of the observable
+        timeseries corresponding to each trajectory in trajfiles.
+    """
 
     obs_all = [] 
     for n in range(len(trajfiles)):
+        # Calculate observable for trajectory in chunks.
         obs_traj = []
-        for trajchunk in mdtraj.iterload(trajfiles[n],top=observable.top,chunk=chunksize):
+        for trajchunk in mdtraj.iterload(trajfiles[n], top=observable.top, chunk=chunksize):
             obs_traj.extend(observable.map(trajchunk))
         obs_traj = np.array(obs_traj)
 
@@ -196,7 +348,34 @@ def calculate_observable(trajfiles, observable, chunksize=1000, collect=True, sa
     return obs_all
 
 def bin_observable(trajfiles, observable, binning_coord, bin_edges, chunksize=10000):
-    """Bin observable over trajectories"""
+    """Bin observable over trajectories
+
+    Parameters
+    ----------
+    trajfiles : list
+        List of trajectory file names to process. Can be full path to file. 
+
+    observable : object
+        A function that takes in an MDtraj trajectory object and returns a
+        number.
+
+    binning_coord : list
+        List of multiple timeseries, each timeseries is used a reaction
+        coordinate to histogram the frames of the corresponding trajectory.
+
+    bin_edges : np.ndarray (n_bins,2)
+        Edges of the bins used to histogram trajectory frames according 
+        to values of binning_coord.
+
+    chunksize : int, opt.
+        Trajectories are processed in chunks. chunksize sets the number of
+        frames in a chunk. Default: 10000
+
+    Returns
+    -------
+    obs_bin_avg : np.ndarray (n_bins, observable.dimension)
+        Average of observable in each bin along binning reaction coordinate.
+    """
 
     assert len(binning_coord[0].shape) == 1
     assert bin_edges.shape[1] == 2
@@ -209,11 +388,14 @@ def bin_observable(trajfiles, observable, binning_coord, bin_edges, chunksize=10
             obs_temp = observable.map(trajchunk)
             chunk_size = trajchunk.n_frames
             coord = binning_coord[i][start_idx:start_idx + chunk_size]
+            # Assign frames in trajectory chunk to histogram bins.
             for n in range(bin_edges.shape[0]):
                 frames_in_this_bin = (coord >= bin_edges[n][0]) & (coord < bin_edges[n][1])
                 if np.any(frames_in_this_bin):
                     obs_by_bin[n,:] += np.sum(obs_temp[frames_in_this_bin],axis=0)
                     count_by_bin[n] += float(sum(frames_in_this_bin))
+                # TODO: Break out of loop when all frames have been assigned.
+                # Count n_frames_assigned. Break when n_frames_assigned == chunk_size
             start_idx += chunk_size
             
     obs_bin_avg = (obs_by_bin.T/count_by_bin).T
@@ -221,7 +403,47 @@ def bin_observable(trajfiles, observable, binning_coord, bin_edges, chunksize=10
 
 def bin_observable_covariance(trajfiles, observable1, observable2, obs1_bin_avg, obs2_bin_avg, 
             binning_coord, bin_edges, chunksize=10000):
-    """Covariance bin observable over trajectories"""
+    """Covariance bin observable over trajectories
+
+    Parameters
+    ----------
+    trajfiles : list
+        List of trajectory file names to process. Can be full path to file. 
+
+    observable1 : object
+        A function that takes in an MDtraj trajectory object and returns a
+        number.
+
+    observable2 : object
+        A function that takes in an MDtraj trajectory object and returns a
+        number.
+
+    obs1_bin_avg : np.ndarray, (n_bins,observable1.dimension)
+        Average value of observable1 in each bin. Use to calculate deviation
+        from average in each bin.
+
+    obs2_bin_avg : np.ndarray, (n_bins,observable2.dimension)
+        Average value of observable2 in each bin. Use to calculate deviation
+        from average in each bin.
+
+    binning_coord : list
+        List of multiple timeseries, each timeseries is used a reaction
+        coordinate to histogram the frames of the corresponding trajectory.
+
+    bin_edges : np.ndarray (n_bins,2)
+        Edges of the bins used to histogram trajectory frames according 
+        to values of binning_coord.
+
+    chunksize : int, opt.
+        Trajectories are processed in chunks. chunksize sets the number of
+        frames in a chunk. Default: 10000
+
+    Returns
+    -------
+    covar_bin_avg : np.ndarray (n_bins, observable1.dimension, observable2.dimension)
+        Average covariance of observable1 and observable2 in each bin along the
+        binning coordinate.
+    """
 
     assert len(binning_coord[0].shape) == 1
     assert bin_edges.shape[1] == 2
@@ -239,7 +461,10 @@ def bin_observable_covariance(trajfiles, observable1, observable2, obs1_bin_avg,
             for n in range(bin_edges.shape[0]):
                 frames_in_this_bin = (coord >= bin_edges[n][0]) & (coord < bin_edges[n][1])
                 if np.any(frames_in_this_bin):
-                    covar_bin_avg[n,:,:] += np.dot((obs1_temp[frames_in_this_bin] - obs1_bin_avg[n]).T,(obs2_temp[frames_in_this_bin] - obs2_bin_avg[n]))
+                    # Calculate covariance of observables 1 and 2 in this bin.
+                    dobs1 = obs1_temp[frames_in_this_bin] - obs1_bin_avg[n]
+                    dobs2 = obs2_temp[frames_in_this_bin] - obs2_bin_avg[n]
+                    covar_bin_avg[n,:,:] += np.dot(dobs1.T, dobs2)
                     count_by_bin[n] += float(sum(frames_in_this_bin))
             start_idx += chunk_size
             print "chunk =  %d " % counter 
