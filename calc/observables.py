@@ -398,8 +398,73 @@ def bin_observable(trajfiles, observable, binning_coord, bin_edges, chunksize=10
                 # Count n_frames_assigned. Break when n_frames_assigned == chunk_size
             start_idx += chunk_size
             
-    obs_bin_avg = (obs_by_bin.T/count_by_bin).T
+    obs_bin_avg = np.zeros((bin_edges.shape[0],observable.dimension),float)
+    for n in range(bin_edges.shape[0]):
+        if count_by_bin[n] > 0:
+            obs_bin_avg[n,:] = obs_by_bin[n,:]/count_by_bin[n]
     return obs_bin_avg
+
+def bin_observable_variance(trajfiles, observable, obs_bin_avg, 
+            binning_coord, bin_edges, chunksize=10000):
+    """Variance bin observable over trajectories
+
+    Parameters
+    ----------
+    trajfiles : list
+        List of trajectory file names to process. Can be full path to file. 
+
+    observable : object
+        A function that takes in an MDtraj trajectory object and returns a
+        number.
+
+    obs_bin_avg : np.ndarray, (n_bins,observable1.dimension)
+        Average value of observable1 in each bin. Use to calculate deviation
+        from average in each bin.
+
+    binning_coord : list
+        List of multiple timeseries, each timeseries is used a reaction
+        coordinate to histogram the frames of the corresponding trajectory.
+
+    bin_edges : np.ndarray (n_bins,2)
+        Edges of the bins used to histogram trajectory frames according 
+        to values of binning_coord.
+
+    chunksize : int, opt.
+        Trajectories are processed in chunks. chunksize sets the number of
+        frames in a chunk. Default: 10000
+
+    Returns
+    -------
+    var_bin_avg : np.ndarray (n_bins, observable.dimension)
+        Average variance of observable in each bin along the
+        binning coordinate.
+    """
+
+    assert len(binning_coord[0].shape) == 1
+    assert bin_edges.shape[1] == 2
+
+    var_bin_avg = np.zeros((bin_edges.shape[0], observable.dimension),float)
+    count_by_bin = np.zeros(bin_edges.shape[0], float)
+    counter = 0 
+    for i in range(len(trajfiles)):
+        start_idx = 0
+        for trajchunk in mdtraj.iterload(trajfiles[i], top=observable.top, chunk=chunksize):
+            obs_temp = observable.map(trajchunk)
+            chunk_size = trajchunk.n_frames
+            coord = binning_coord[i][start_idx:start_idx + chunk_size]
+            for n in range(bin_edges.shape[0]):
+                frames_in_this_bin = (coord >= bin_edges[n][0]) & (coord < bin_edges[n][1])
+                if np.any(frames_in_this_bin):
+                    # Calculate variance of observable in this bin.
+                    var_bin_avg[n,:] += np.sum((obs_temp[frames_in_this_bin] - obs_bin_avg[n])**2,axis=0)
+                    count_by_bin[n] += float(sum(frames_in_this_bin))
+            start_idx += chunk_size
+            print "chunk =  %d " % counter 
+            counter += 1
+    for n in range(bin_edges.shape[0]):
+        if count_by_bin[n] > 0:
+            var_bin_avg[n,:] /= count_by_bin[n]
+    return var_bin_avg
 
 def bin_observable_covariance(trajfiles, observable1, observable2, obs1_bin_avg, obs2_bin_avg, 
             binning_coord, bin_edges, chunksize=10000):

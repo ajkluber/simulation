@@ -24,22 +24,34 @@ if __name__ == "__main__":
         qtanhsum_obs = observables.TanhContactSum(top, pairs, r0_cont, widths)
         qtanh = observables.calculate_observable(trajfiles, qtanhsum_obs, saveas="Qtanh_0_05.dat")
 
-    n, bins= np.histogram(np.concatenate(qtanh),bins=40)
-    mid_bin = 0.5*(bins[1:] + bins[:-1])
+    Atanhi_obs = observables.TanhContacts(top, nn_pairs, nn_r0_cont, widths)
+    if os.path.exists("binned_Ai_vs_Qtanh_0_05/Ai_vs_bin.dat"):
+        os.chdir("binned_Ai_vs_Qtanh_0_05")
+        mid_bin = np.loadtxt("mid_bin.dat")
+        Atanhi_bin_avg = np.loadtxt("Ai_vs_bin.dat")
+        os.chdir("..")
+        
+        bins = np.zeros(mid_bin.shape[0] + 1, float)
+        bins[1:-1] = 0.5*(mid_bin[1:] + mid_bin[:-1])
+        bins[0] = mid_bin[0] - (bins[1] - mid_bin[0])
+        bins[-1] = mid_bin[-1] + (mid_bin[-1] - bins[-2])
+    else:
+        n, bins = np.histogram(np.concatenate(qtanh),bins=40)
+        mid_bin = 0.5*(bins[1:] + bins[:-1])
+
+        Atanhi_bin_avg = observables.bin_observable(trajfiles, Atanhi_obs, qtanh, bin_edges)
+
+        if not os.path.exists("binned_Ai_vs_Qtanh_0_05"):
+            os.mkdir("binned_Ai_vs_Qtanh_0_05")
+        os.chdir("binned_Ai_vs_Qtanh_0_05")
+        np.savetxt("mid_bin.dat",mid_bin)
+        np.savetxt("Ai_vs_bin.dat",Atanhi_bin_avg)
+        os.chdir("..")
+
     bin_edges = np.array([ [bins[i], bins[i+1]] for i in range(len(bins) - 1 ) ])
 
-    Atanhi_obs = observables.TanhContacts(top, nn_pairs, nn_r0_cont, widths)
-    Atanhi_bin_avg = observables.bin_observable(trajfiles, Atanhi_obs, qtanh, bin_edges)
-
-    if not os.path.exists("binned_Ai_vs_Qtanh_0_05"):
-        os.mkdir("binned_Ai_vs_Qtanh_0_05")
-    os.chdir("binned_Ai_vs_Qtanh_0_05")
-    np.savetxt("mid_bin.dat",mid_bin)
-    np.savetxt("Ai_vs_bin.dat",Atanhi_bin_avg)
-    os.chdir("..")
-
     # Calculate variance in Ai
-    dAtanhi2_bin_avg = observables.bin_observable_covariance(trajfiles, Atanhi_obs, Atanhi_obs, Atanhi_bin_avg, Atanhi_bin_avg, qtanh, bin_edges)
+    dAtanhi2_bin_avg = observables.bin_observable_variance(trajfiles, Atanhi_obs, Atanhi_bin_avg, qtanh, bin_edges)
 
     if not os.path.exists("binned_dAi2_vs_Qtanh_0_05"):
         os.mkdir("binned_dAi2_vs_Qtanh_0_05")
