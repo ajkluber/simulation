@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def partition_dtraj(dtraj, state1, state2): 
     """ Partition the trajectory into transits bewteen states and intra-state dwells.
 
@@ -86,15 +87,3 @@ def partition_dtraj(dtraj, state1, state2):
     transits21 = np.array(transits[1])
     return dwells1, dwells2, transits12, transits21
 
-if __name__ == "__main__":
-    
-
-    x = np.loadtxt("Qtanh_0_05.dat")
-    A = 32.
-    B = 105.
-    dtraj = np.zeros(x.shape[0], int)
-    dtraj[x <= A] = 0
-    dtraj[x >= B] = 2
-    dtraj[(x > A) & (x < B)] = 1
-
-    dwellsA, dwellsB, transitsAB, transitsBA = partition_dtraj(dtraj, 0, 2)
