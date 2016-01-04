@@ -3,8 +3,7 @@ import numpy as np
 
 import simulation.calc.observables as observables
 
-if __name__ == "__main__":
-    trajfiles = [ x.rstrip("\n") for x in open("ticatrajs","r").readlines() ]
+def calc_Enn_for_directories(trajfiles):
     dir = os.path.dirname(trajfiles[0])
     nat_pairs = np.loadtxt("%s/native_contacts.ndx" % dir, skiprows=1, dtype=int) - 1
     n_native_pairs = nat_pairs.shape[0]
@@ -25,3 +24,8 @@ if __name__ == "__main__":
 
     Enn_obs = observables.PairEnergySum(top, nn_pairs, nn_pair_type, nn_eps, nn_pair_params)
     Enn = observables.calculate_observable(trajfiles, Enn_obs, saveas="Enonnative.dat")
+
+if __name__ == "__main__":
+    trajfiles = [ x.rstrip("\n") for x in open("ticatrajs","r").readlines() ]
+
+    calc_Enn_for_directories(trajfiles)
