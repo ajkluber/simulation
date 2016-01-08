@@ -1,6 +1,7 @@
 import os
 import glob
 import shutil
+import argparse
 import numpy as np
 import subprocess as sb
 
@@ -114,36 +115,56 @@ def run_minimization(frame_idxs, trajfile="../../traj.xtc", top="../../Native.pd
 
     os.chdir("..")
 
-def concatenate_output():
-    """Concatenate all the separate energy files"""
-    frame_idxs = np.loadtxt("frame_idxs.dat", dtype=int)
-
-    Etot = []
-    frames = []
-    missing = []
-    for i in range(len(frame_idxs)):
-        if os.path.exists("Etot_%d.dat" % frame_idxs[i]):
-            with open("Etot_%d.dat" % frame_idxs[i], "r") as fin:
-                Etot.append(float(fin.read()))
-        else:
-            missing.append(frame_idxs[i])
-            break
-
-    Etot = np.array(Etot)
-    return Etot
-
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Energy minimization for inherent structure analysis.")
+    parser.add_argument("--name",
+                        type=str,
+                        required=True,
+                        help="Name of .ini file.")
 
-    frames_per_proc = 2500 # per proc for 8hours
+    parser.add_argument("--path_to_ini",
+                        type=str,
+                        required=True,
+                        help="Path to .ini file.")
 
-    name = "1E0G"
-    model_dir = "/home/ajk8/scratch/6-10-15_nonnative/1E0G/random_b2_0.01/replica_1"
-    n_frames = int(6E5)
-    skip = 8
+    parser.add_argument("--skip",
+                        type=int,
+                        default=10,
+                        help="Number of frames to skip. Subsample.")
+
+    parser.add_argument("--n_frames",
+                        type=int,
+                        default=int(6E5),
+                        help="Number of frames in trajectory.")
+    
+    args = parser.parse_args()
+    name = args.name
+    model_dir = args.path_to_ini
+    n_frames = args.n_frames
+    skip = args.skip
+
+    # Performance on one processor is roughly 11sec/frame. 
+    # So 1proc can do about 2500 frames over 8hours.
+    # Adjust the number of processors (size) and subsample (skip)
+    # accordingingly
+
+    #name = "1E0G"
+    #model_dir = "/home/ajk8/scratch/6-10-15_nonnative/1E0G/random_b2_0.01/replica_1"
+    #model_dir = "/home/ajk8/scratch/6-10-15_nonnative/1E0G/random_b2_1.00/replica_1"
+    #n_frames = int(6E5)
+    #skip = 10
+
     frame_idxs = range(0, n_frames, skip)
 
-    if not os.path.exists("inherent_structures"):
-        os.mkdir("inherent_structures")
+    comm = MPI.COMM_WORLD   
+    size = comm.Get_size()  
+    rank = comm.Get_rank()
+
+    if rank == 0:
+        if not os.path.exists("inherent_structures"):
+            os.mkdir("inherent_structures")
+    comm.Barrier()
+
     os.chdir("inherent_structures")
     prep_minimization(model_dir, name)
     run_minimization(frame_idxs)
