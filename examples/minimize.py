@@ -95,6 +95,15 @@ def run_minimization(frame_idxs, trajfile="../../traj.xtc", top="../../Native.pd
     if not os.path.exists("rank_{}".format(rank)):
         os.mkdir("rank_{}".format(rank))
     os.chdir("rank_{}".format(rank))
+    
+    logfilename = "calcIS.log"
+    logging.basicConfig(filename=logfilename,
+                        filemode="w",
+                        format="%(levelname)s:%(name)s:%(asctime)s: %(message)s",
+                        datefmt="%H:%M:%S",
+                        level=logging.DEBUG)
+
+    logging.info("")
 
     np.savetxt("frame_idxs.dat", frame_idxs_thread, fmt="%d")
 
