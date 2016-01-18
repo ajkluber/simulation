@@ -2,6 +2,7 @@ import os
 import glob
 import shutil
 import argparse
+import logging
 import numpy as np
 import subprocess as sb
 
@@ -77,50 +78,44 @@ def prep_minimization(model_dir, name):
             np.savetxt(model.tablenames[i], model.tables[i], fmt="%16.15e", delimiter=" ")
     os.chdir("..")
 
-def run_minimization(frame_idxs, trajfile="../../traj.xtc", top="../../Native.pdb"):
+def run_minimization(frame_idxs, traj, rank):
     """Perform energy minimization on each frame"""
 
-    comm = MPI.COMM_WORLD   
-    size = comm.Get_size()  
-    rank = comm.Get_rank()
-
-    # split frames equally among processors
-    frames_per_proc = len(frame_idxs)/size
-    
-    if rank == (size - 1):
-        frame_idxs_thread = np.array(frame_idxs[rank*frames_per_proc:])
-    else:
-        frame_idxs_thread = np.array(frame_idxs[rank*frames_per_proc:(rank + 1)*frames_per_proc])
-
+    n_frames_out = len(frame_idxs)
     if not os.path.exists("rank_{}".format(rank)):
         os.mkdir("rank_{}".format(rank))
     os.chdir("rank_{}".format(rank))
     
-    logfilename = "calcIS.log"
-    logging.basicConfig(filename=logfilename,
-                        filemode="w",
-                        format="%(levelname)s:%(name)s:%(asctime)s: %(message)s",
-                        datefmt="%H:%M:%S",
-                        level=logging.DEBUG)
+    if os.path.exists("Etot.dat") and (len(np.loadtxt("Etot.dat")) == n_frames_out):
+        # Minimization has finished
+        pass
+    else:
+        np.savetxt("frame_idxs.dat", frame_idxs, fmt="%d")
 
-    logging.info("")
+        # Minimization needs to be done
+        logfilename = "calcIS.log"
+        logging.basicConfig(filename=logfilename,
+                            filemode="w",
+                            format="%(levelname)s:%(name)s:%(asctime)s: %(message)s",
+                            datefmt="%H:%M:%S",
+                            level=logging.DEBUG)
 
-    np.savetxt("frame_idxs.dat", frame_idxs_thread, fmt="%d")
+        logging.info("# Inherent structure calculation: rank {}".format(rank))
+        logging.info("# Frame")
 
-    # Loop over trajectory frames
-    for i in xrange(len(frame_idxs_thread)):
-        idx = frame_idxs_thread[i]
-        # slice frame from trajectory
-        print "minimizing frame: %d" % idx
-        frm = mdtraj.load_frame(trajfile, idx, top=top)
-        frm.save_gro("conf.gro")
+        # Loop over trajectory frames
+        for i in xrange(len(frame_idxs)):
+            logging.info("{}".format(rank))
+            # slice frame from trajectory
+            frm = traj.slice(idx)
+            frm.save_gro("conf.gro")
 
-        # perform energy minimization using gromacs
-        script = minimization_script()
-        with open("minimize.bash", "w") as fout:
-            fout.write(script)
-        cmd = "bash minimize.bash"
-        sb.call(cmd.split())
+            # perform energy minimization using gromacs
+            script = minimization_script()
+            with open("minimize.bash", "w") as fout:
+                fout.write(script)
+            cmd = "bash minimize.bash"
+            sb.call(cmd.split())
 
     os.chdir("..")
 
@@ -136,10 +131,10 @@ if __name__ == "__main__":
                         required=True,
                         help="Path to .ini file.")
 
-    parser.add_argument("--skip",
+    parser.add_argument("--stride",
                         type=int,
                         default=10,
-                        help="Number of frames to skip. Subsample.")
+                        help="Number of frames to stride. Subsample.")
 
     parser.add_argument("--n_frames",
                         type=int,
@@ -150,20 +145,18 @@ if __name__ == "__main__":
     name = args.name
     model_dir = args.path_to_ini
     n_frames = args.n_frames
-    skip = args.skip
+    stride = args.stride
 
     # Performance on one processor is roughly 11sec/frame. 
     # So 1proc can do about 2500 frames over 8hours.
-    # Adjust the number of processors (size) and subsample (skip)
+    # Adjust the number of processors (size) and subsample (stride)
     # accordingingly
 
     #name = "1E0G"
     #model_dir = "/home/ajk8/scratch/6-10-15_nonnative/1E0G/random_b2_0.01/replica_1"
     #model_dir = "/home/ajk8/scratch/6-10-15_nonnative/1E0G/random_b2_1.00/replica_1"
     #n_frames = int(6E5)
-    #skip = 10
-
-    frame_idxs = range(0, n_frames, skip)
+    #stride = 10
 
     comm = MPI.COMM_WORLD   
     size = comm.Get_size()  
@@ -176,5 +169,30 @@ if __name__ == "__main__":
 
     os.chdir("inherent_structures")
     prep_minimization(model_dir, name)
-    run_minimization(frame_idxs)
+
+    all_frame_idxs = np.arange(0, n_frames)
+    chunksize = len(all_frame_idxs)/size
+    if (len(all_frame_idxs) % size) != 0:
+        chunksize += 1
+    frames_for_proc = [ all_frame_idxs[i*chunksize:(i + 1)*chunksize:stride] for i in range(size) ]
+    n_frames_for_proc = [ len(x) for x in frames_for_proc ]
+
+    if rank == 0:
+        rank_i = 0
+        for chunk in mdtraj.iterload("traj.xtc", top="Native.pdb", chunk=chunksize):
+            sub_chunk = chunk.slice(np.arange(0, chunk.n_frames, stride))
+
+            if (rank_i == 0) and (rank == 0):
+                traj = sub_chunk
+            else:
+                comm.send(sub_chunk, dest=rank_i, tag=11)
+            rank_i += 1
+        
+    frame_idxs = frames_for_proc[rank]
+    if rank > 0:
+        traj = comm.recv(source=0, tag=11)
+    #print rank, traj.n_frames, traj.time[:2]/0.5, frame_idxs[:2], traj.time[-2:]/0.5, frame_idxs[-2:]  ## DEBUGGING
+
+    #run_minimization(frame_idxs, traj, rank)
     os.chdir("..")
+
