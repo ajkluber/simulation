@@ -107,3 +107,44 @@ def simulated_annealing(Tlist,pslist,nsteps,nstout="1000"):
     mdp_string += "annealing-time           = %s\n" % annealtimes
     mdp_string += "annealing-temp           = %s\n" % annealtemps
     return mdp_string
+
+def energy_minimization(integrator="l-bfgs", etol=1.):
+    assert integrator in ["l-bfgs"]
+
+    mdp_string =   "integrator  = %s\n" % integrator
+    mdp_string +=  "emtol       = %.1f\n" % etol
+    mdp_string +=  "emstep      = 0.005\n"
+    mdp_string +=  "nsteps      = 50000\n"
+    mdp_string +=  "; neighborsearching parameters\n"
+    mdp_string +=  "nstlist                  = 10\n"
+    mdp_string +=  "ns-type                  = grid\n"
+    mdp_string +=  "pbc                      = no\n"
+    mdp_string +=  "periodic_molecules       = no\n"
+    mdp_string +=  "rlist                    = 2.0\n"
+    mdp_string +=  "rcoulomb                 = 2.0\n"
+    mdp_string +=  "rvdw                     = 2.0\n"
+    mdp_string +=  "; options for electrostatics and vdw\n"
+    mdp_string +=  "coulombtype              = User\n"
+    mdp_string +=  "vdw-type                 = User\n"
+    mdp_string +=  "table-extension          = 1.0\n"
+    return mdp_string
+
+
+def normal_modes(etol=1.):
+    mdp_string =   "integrator  = nm\n"
+    mdp_string +=  "emtol       = %.1f\n" % etol
+    mdp_string +=  "emstep      = 0.005\n"
+    mdp_string +=  "nsteps      = 50000\n"
+    mdp_string +=  "; neighborsearching parameters\n"
+    mdp_string +=  "nstlist                  = 10\n"
+    mdp_string +=  "ns-type                  = grid\n"
+    mdp_string +=  "pbc                      = no\n"
+    mdp_string +=  "periodic_molecules       = no\n"
+    mdp_string +=  "rlist                    = 2.0\n"
+    mdp_string +=  "rcoulomb                 = 2.0\n"
+    mdp_string +=  "rvdw                     = 2.0\n"
+    mdp_string +=  "; options for electrostatics and vdw\n"
+    mdp_string +=  "coulombtype              = User\n"
+    mdp_string +=  "vdw-type                 = User\n"
+    mdp_string +=  "table-extension          = 1.0\n"
+    return mdp_string
