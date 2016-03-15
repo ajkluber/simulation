@@ -8,6 +8,38 @@ already set (e.g. temperature, timestep, friction constant).
 
 """
 
+def constant_energy(nsteps, nstout="1000", dt=0.00001):
+    """ Generate grompp.mdp file string. Gromacs 4.5 """
+    mdp_string = "; Run control parameters \n"
+    mdp_string += "integrator               = md  \n"
+    mdp_string += "dt                       = %f \n" % dt
+    mdp_string += "nsteps                   = %s \n\n" % nsteps
+    mdp_string += "; output control options \n"
+    mdp_string += "nstxout                  = 0 \n"
+    mdp_string += "nstvout                  = 0 \n"
+    mdp_string += "nstfout                  = %s \n" % nstout
+    mdp_string += "nstlog                   = 5000 \n"
+    mdp_string += "nstenergy                = %s \n" % nstout
+    mdp_string += "nstxtcout                = %s \n" % nstout
+    mdp_string += "xtc_grps                 = system \n"
+    mdp_string += "energygrps               = system \n\n" 
+    mdp_string += "; neighborsearching parameters \n"
+    mdp_string += "nstlist                  = 20 \n"
+    mdp_string += "ns-type                  = grid \n"
+    mdp_string += "pbc                      = no \n"
+    mdp_string += "periodic_molecules       = no \n"
+    mdp_string += "rlist                    = 2.0 \n"
+    mdp_string += "rcoulomb                 = 2.0 \n"
+    mdp_string += "rvdw                     = 2.0  \n\n"
+    mdp_string += "; options for electrostatics and vdw \n"
+    mdp_string += "coulombtype              = User \n"
+    mdp_string += "vdw-type                 = User \n"
+    mdp_string += "table-extension          = 1.0 \n\n"
+    mdp_string += "; options for temp coupling \n"
+    mdp_string += "Tcoupl                   = no \n"
+    mdp_string += "Pcoupl                   = no \n"
+    return mdp_string
+
 def constant_temperature(T,nsteps,nstout="1000"):
     """ Generate grompp.mdp file string. Gromacs 4.5 """
     mdp_string = "; Run control parameters \n"
