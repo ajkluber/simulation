@@ -183,18 +183,35 @@ def normal_modes(etol=1.):
     mdp_string +=  "table-extension          = 1.0\n"
     return mdp_string
 
-def pull_code(group1_name, group2_name, kumb):
+#def pull_code(group1_name, group2_name, kumb, r0):
+#    """ GROMACS 5."""
+#    mdp_string =   "; Pull code             \n"
+#    mdp_string +=  "pull                    = yes       \n"
+#    mdp_string +=  "pull_ngroups            = 2\n"
+#    mdp_string +=  "pull_ncoords            = 1\n"
+#    mdp_string +=  "pull_group1_name        = {}\n".format(group1_name)
+#    mdp_string +=  "pull_group2_name        = {}\n".format(group2_name)
+#    mdp_string +=  "pull_coord1_type        = umbrella      ; harmonic biasing force\n"
+#    mdp_string +=  "pull_coord1_geometry    = distance      ; simple distance increase\n"
+#    mdp_string +=  "pull_coord1_groups      = 1 2\n"
+#    mdp_string +=  "pull_coord1_dim         = Y Y Y\n"
+#    mdp_string +=  "pull_coord1_rate        = 0.0\n"
+#    mdp_string +=  "pull_coord1_init        = {:.8f}\n".format(r0)
+#    mdp_string +=  "pull_coord1_k           = {:.8f}          ; kJ mol^-1 nm^-2\n".format(kumb)
+#    #mdp_string +=  "pull_coord1_start       = yes           ; define initial COM distance > 0\n"
+#    return mdp_string
+
+def pull_code(group1_name, group2_name, kumb, r0):
+    """ GROMACS 4.5.6"""
     mdp_string =   "; Pull code             \n"
-    mdp_string +=  "pull                    = yes       \n"
-    mdp_string +=  "pull_ngroups            = 2\n"
-    mdp_string +=  "pull_ncoords            = 1\n"
-    mdp_string +=  "pull_group1_name        = {}\n".format(group1_name)
-    mdp_string +=  "pull_group2_name        = {}\n".format(group2_name)
-    mdp_string +=  "pull_coord1_type        = umbrella      ; harmonic biasing force\n"
-    mdp_string +=  "pull_coord1_geometry    = distance      ; simple distance increase\n"
-    mdp_string +=  "pull_coord1_groups      = 1 2\n"
-    mdp_string +=  "pull_coord1_dim         = Y Y Y\n"
-    mdp_string +=  "pull_coord1_rate        = 0.0\n"
-    mdp_string +=  "pull_coord1_k           = {}          ; kJ mol^-1 nm^-2\n".format(kumb)
-    mdp_string +=  "pull_coord1_start       = yes           ; define initial COM distance > 0\n"
+    mdp_string +=  "pull                    = umbrella       \n"
+    mdp_string +=  "pull_geometry           = distance      ; simple distance increase\n"
+    mdp_string +=  "pull_dim                = Y Y Y\n"
+    mdp_string +=  "pull_ngroups            = 1\n"
+    mdp_string +=  "pull_group0             = {}\n".format(group1_name)
+    mdp_string +=  "pull_group1             = {}\n".format(group2_name)
+    mdp_string +=  "pull_init1              = {:.8f}\n".format(r0)
+    mdp_string +=  "pull_rate1              = 0.0\n"
+    mdp_string +=  "pull_k1                 = {:.8f}          ; kJ mol^-1 nm^-2\n".format(kumb)
+    #mdp_string +=  "pull_start       = yes           ; define initial COM distance > 0\n"
     return mdp_string
