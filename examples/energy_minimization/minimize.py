@@ -1,6 +1,4 @@
 import os
-import glob
-import shutil
 import argparse
 import logging
 import numpy as np
@@ -90,34 +88,27 @@ def run_minimization(frame_idxs, traj, rank):
         # Minimization has finished
         pass
     else:
-        np.savetxt("frame_idxs.dat", frame_idxs, fmt="%d")
-
         # Minimization needs to be done
-        logfilename = "calcIS.log"
-        logging.basicConfig(filename=logfilename,
-                            filemode="w",
-                            format="%(levelname)s:%(name)s:%(asctime)s: %(message)s",
-                            datefmt="%H:%M:%S",
-                            level=logging.DEBUG)
-
-        logging.info("# Inherent structure calculation: rank {}".format(rank))
-        logging.info("# Frame")
-
+        np.savetxt("frame_idxs.dat", frame_idxs, fmt="%d")
         # Loop over trajectory frames
-        for i in xrange(len(frame_idxs)):
-            logging.info("{}".format(rank))
-            # slice frame from trajectory
-            frm = traj.slice(idx)
-            frm.save_gro("conf.gro")
-
+        for i in xrange(traj.n_frames):
             # perform energy minimization using gromacs
+            frm = traj.slice(i)
+            frm.save_gro("conf.gro")
             script = minimization_script()
             with open("minimize.bash", "w") as fout:
                 fout.write(script)
             cmd = "bash minimize.bash"
             sb.call(cmd.split())
 
+            # record frame idx
+            with open("frames_fin.dat", "a") as fout:
+                fout.write("{d}\n".format(frame_idxs[i]))
+
     os.chdir("..")
+
+def restart_rank():
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Energy minimization for inherent structure analysis.")
@@ -170,6 +161,7 @@ if __name__ == "__main__":
     os.chdir("inherent_structures")
     prep_minimization(model_dir, name)
 
+    # Distribute trajectory chunks to each processor
     all_frame_idxs = np.arange(0, n_frames)
     chunksize = len(all_frame_idxs)/size
     if (len(all_frame_idxs) % size) != 0:
@@ -193,6 +185,9 @@ if __name__ == "__main__":
         traj = comm.recv(source=0, tag=11)
     #print rank, traj.n_frames, traj.time[:2]/0.5, frame_idxs[:2], traj.time[-2:]/0.5, frame_idxs[-2:]  ## DEBUGGING
 
-    #run_minimization(frame_idxs, traj, rank)
+    run_minimization(frame_idxs, traj, rank)
+
+    # If all trajectories finished then bring them together.
+
     os.chdir("..")
 
