@@ -50,7 +50,7 @@ def get_awsem_in_script(T, nsteps, topfile, seqfile, CA_idxs, CB_HB_idxs, O_idxs
     aw_string += "fix       2 alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data {}\n\n".format(seqfile)
 
     aw_string += "# Output\n"
-    aw_string += "thermo      1000\n"
+    aw_string += "thermo      {:d}\n".format(n_steps_xtc)
     aw_string += "dump        1 all xtc {:d} {}\n\n".format(n_steps_xtc, trajname)
 
     aw_string += "# Run simulations\n"
