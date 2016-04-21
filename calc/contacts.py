@@ -2,7 +2,58 @@ import os
 import argparse
 import numpy as np
 
+import simulation.calc.binned_contacts
 import simulation.calc.util as util
+import simulation.calc.pmfutil as pmfutil
+
+def TS_probabilities(Tdirs,coordfile,contact_args):
+    """ Calculate the TS contact probabilities along some reaction coordinate
+
+    Parameters
+    ----------
+
+    Tdirs : list
+        List of directory names to collect reaction coordinate file from
+
+    coordfile : str
+        Name of file containing reaction coordinate.
+
+    contact_args : object
+        Object containing the 
+
+    """
+
+    T = Tdirs[0].split("_")[0]
+    coordname = coordfile.split(".")[0]
+    if not os.path.exists("%s_profile/state_bounds.txt" % coordname):
+        # Determine state bounds from 1D profile
+        print "calculating state bounds"
+        coordvst = np.concatenate([np.loadtxt("%s/%s" % (x,coordfile)) for x in Tdirs ])
+        if not os.path.exists("%s_profile" % coordname):
+            os.mkdir("%s_profile" % coordname)
+        os.chdir("%s_profile" % coordname)
+        mid_bin, Fdata = pmfutil.pmf1D(coordvst,bins=40)
+        xinterp, F = pmfutil.interpolate_profile(mid_bin,Fdata)
+        minidx, maxidx = pmfutil.extrema_from_profile(xinterp,F)
+        min_bounds, max_bounds = pmfutil.state_bounds_from_profile(xinterp,F)
+        min_labels, max_labels = pmfutil.assign_state_labels(min_bounds,max_bounds)
+        pmfutil.save_state_bounds(T,min_bounds,max_bounds,min_labels,max_labels)
+        os.chdir("..")
+        with open("%s_profile/%s_state_bounds.txt" % (coordname,T),"r") as fin:
+            state_bins = np.array([ [float(x.split()[1]),float(x.split()[2])] 
+                for x in fin.readlines() if x.split()[0].startswith("TS")])
+    else:
+        # Load state bounds
+        with open("%s_profile/state_bounds.txt" % coordname,"r") as fin:
+            state_bins = np.array([ [float(x.split()[1]),float(x.split()[2])] 
+                for x in fin.readlines() if x.split()[0].startswith("TS")])
+
+    # Calculate the contact probability in TS
+    print "calculating TS"
+    contact_args.bins = state_bins
+    bin_edges, qi_vs_Q = simulation.calc.binned_contacts.calculate_binned_contacts_vs_q(contact_args)
+    TS = qi_vs_Q[0,:]
+    return TS
 
 def get_args():
     parser = argparse.ArgumentParser(description='.')
