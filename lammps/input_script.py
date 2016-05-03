@@ -25,7 +25,7 @@ def header_string(boundary):
 
 
 def get_awsem_in_script(T, nsteps, topfile, seqfile, CA_idxs, CB_HB_idxs, O_idxs,
-            boundary=["p","p","p"], n_steps_xtc=1000, trajname="traj.xtc"):
+            boundary=["p","p","p"], n_steps_xtc=1000, damping_const=10., trajname="traj.xtc"):
 
     aw_string = header_string(boundary)
 
@@ -46,7 +46,7 @@ def get_awsem_in_script(T, nsteps, topfile, seqfile, CA_idxs, CB_HB_idxs, O_idxs
 
     aw_string += "# Set integrator, temperature, damping constant.\n"
     aw_string += "velocity    all create {:.2f} 2349852\n".format(T)
-    aw_string += "fix       1 all nvt temp {0:.2f} {0:.2f} 100.0\n".format(T)
+    aw_string += "fix       1 all nvt temp {0:.2f} {0:.2f} {1:.1f}\n".format(T, damping_const)
     aw_string += "fix       2 alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data {}\n\n".format(seqfile)
 
     aw_string += "# Output\n"
