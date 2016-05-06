@@ -31,13 +31,13 @@ def make_script_string(commands, jobname, gpus=False, partition="commons",
     slurm +="#SBATCH --time=%s\n" % walltime
     slurm +="#SBATCH --export=ALL\n"
     if exclusive:
-        slurm_string +="#SBATCH --exclusive\n"
+        slurm +="#SBATCH --exclusive\n"
     if mem_per_cpu:
         slurm +="#SBATCH --mem-per-cpu=%s\n" % mem_per_cpu
     if email:
-        slurm_string +="#SBATCH --mail-user=%s\n" % email
+        slurm +="#SBATCH --mail-user=%s\n" % email
         if emailtype:
-            slurm_string +="#SBATCH --mail-type=%s\n" % emailtype 
+            slurm +="#SBATCH --mail-type=%s\n" % emailtype 
     if cd_slurm_dir:
         slurm +="cd $SLURM_SUBMIT_DIR\n\n"
     else:
