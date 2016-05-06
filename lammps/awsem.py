@@ -1,4 +1,10 @@
+import os 
+import shutil
+import subprocess as sb
 
+import model_builder as mdb
+
+import input_script
 
 class AwsemParameters(object):
     """class to hold and set parameters for awsem"""
@@ -12,25 +18,25 @@ class AwsemParameters(object):
         # method to construct the fix_backbone_coeff.dat file
 
 
-def get_fragment_memory_file(traj, path_to_fraglib="."):
-    """Write fragment memory file"""
-
-    frag_length = 9
-    frag_weight = 1
-
-    mem_string = "[Memories]\n"
-    for i in range(traj.n_chains):
-        chain = traj.top.chain(i)
-        n_res = chain.n_residues
-        # enumerate fragments in chain
-        for j in range(1, n_res + 1, frag_length):
-            frag_idx = chain.residue(j - 1).index + 1
-            if (frag_idx + frag_length) >= n_res:
-                frag_length = n_res - frag_idx
-            mem_string += "{}/fraglib/SH3.gro {:d} {:d} {:d} {:d}\n".format(
-                    path_to_fraglib, frag_idx, frag_idx, frag_length, frag_weight)
-
-    return mem_string
+#def get_fragment_memory_file(traj, path_to_fraglib):
+#    """Write fragment memory file"""
+#
+#    frag_length = 9
+#    frag_weight = 1
+#
+#    mem_string = "[Memories]\n"
+#    for i in range(traj.n_chains):
+#        chain = traj.top.chain(i)
+#        n_res = chain.n_residues
+#        # enumerate fragments in chain
+#        for j in range(1, n_res + 1, frag_length):
+#            frag_idx = chain.residue(j - 1).index + 1
+#            if (frag_idx + frag_length) >= n_res:
+#                frag_length = n_res - frag_idx
+#            mem_string += "{} {:d} {:d} {:d} {:d}\n".format(
+#                    path_to_fraglib, frag_idx, frag_idx, frag_length, frag_weight)
+#
+#    return mem_string
 
 def get_fix_backbone_coeff(debye=True, frag_mem_file=None, frag_mem_strength=1):
     coeff_string = ""
@@ -47,7 +53,7 @@ def get_fix_backbone_coeff(debye=True, frag_mem_file=None, frag_mem_strength=1):
     coeff_string += get_water()
     coeff_string += get_burial()
     coeff_string += get_helix()
-    if not (frag_mem_file is None):
+    if not (frag_mem_file is None) and not (frag_mem_strength is None):
         coeff_string += get_fragment_memory(frag_mem_strength, frag_mem_file)
     if debye:
         coeff_string += get_debye_huckel()
@@ -152,7 +158,7 @@ def get_helix():
 
 def get_fragment_memory(frag_mem_strength, memfile):
     return """[Fragment_Memory]
-{:.1f}
+{:.8f}
 {}
 uniform.gamma\n\n""".format(frag_mem_strength, memfile)
 
@@ -173,4 +179,48 @@ def get_solvent_barrier():
 13
 1
 0.00 2.04 0.57 0.57 0.36 1.11 1.17 -1.52 0.87 0.67 0.79 1.47 1.03 1.00 -0.10 0.26 0.37 1.21 1.15 0.39\n\n"""
+
+def run_constant_temp(model, traj, name, T, n_steps, n_steps_out, frag_strength, frag_mem_string,
+                debye=False, awsem_other_param_files=["anti_HB", 
+                "anti_NHB", "anti_one", "burial_gamma.dat",  "gamma.dat",
+                "para_HB", "para_one", "uniform.gamma"], 
+                awsem_param_path="/home/alex/packages/awsemmd/parameters",
+                lammps_exe="/home/alex/packages/lammps-9Oct12/src/lmp_serial"):
+
+    seqfile = "{}.seq".format(name)
+    memfile = "{}.mem".format(name)
+    topfile = "data.{}".format(name)
+    infile = "{}.in".format(name)
+
+    CA_idxs = [ atom.index + 1 for atom in model.mapping.top.atoms if (atom.name == "CA") ] 
+    CB_idxs = [ atom.index + 1 for atom in model.mapping.top.atoms if (atom.name in ["CB", "HB"]) ]
+    O_idxs = [ atom.index + 1 for atom in model.mapping.top.atoms if (atom.name == "O") ] 
+
+    # Save initial conditions
+    model.starting_traj[0].save("ref.gro")
+    model.starting_traj[0].save("ref.pdb")
+    mdb.models.structure.viz_bonds.write_bonds_tcl(model.mapping.top)
+
+    # Write awsem parameter files
+    writer = mdb.models.output.AWSEMLammpsFiles(model)
+    writer.write_simulation_files(traj, topfile, seqfile)
+
+    for filename in awsem_other_param_files:
+        shutil.copy("{}/{}".format(awsem_param_path, filename), ".")
+
+    with open(memfile, "w") as fout:
+        fout.write(frag_mem_string)
+
+    with open("fix_backbone_coeff.data", "w") as fout:
+        fout.write(get_fix_backbone_coeff(debye=False, frag_mem_file=memfile, frag_mem_strength=frag_strength))
+
+    # Simulation instructions file
+    with open(infile, "w") as fout:
+        lammps_in_string = input_script.get_awsem_in_script(T, n_steps,
+                                topfile, seqfile, CA_idxs, CB_idxs, O_idxs,
+                                n_steps_xtc=n_steps_out)
+        fout.write(lammps_in_string)
+
+    # Run the simulation
+    sb.call("{} < {}".format(lammps_exe, infile), shell=True)
 
