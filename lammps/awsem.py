@@ -184,7 +184,7 @@ def prep_constant_temp(model, traj, name, T, n_steps, n_steps_out, frag_strength
                 debye=False, awsem_other_param_files=["anti_HB", 
                 "anti_NHB", "anti_one", "burial_gamma.dat",  "gamma.dat",
                 "para_HB", "para_one", "uniform.gamma"], 
-                awsem_param_path="/home/alex/packages/awsemmd/parameters")
+                awsem_param_path="/home/alex/packages/awsemmd/parameters"):
 
     seqfile = "{}.seq".format(name)
     memfile = "{}.mem".format(name)
