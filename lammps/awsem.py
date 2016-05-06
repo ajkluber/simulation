@@ -180,12 +180,11 @@ def get_solvent_barrier():
 1
 0.00 2.04 0.57 0.57 0.36 1.11 1.17 -1.52 0.87 0.67 0.79 1.47 1.03 1.00 -0.10 0.26 0.37 1.21 1.15 0.39\n\n"""
 
-def run_constant_temp(model, traj, name, T, n_steps, n_steps_out, frag_strength, frag_mem_string,
+def prep_constant_temp(model, traj, name, T, n_steps, n_steps_out, frag_strength, frag_mem_string,
                 debye=False, awsem_other_param_files=["anti_HB", 
                 "anti_NHB", "anti_one", "burial_gamma.dat",  "gamma.dat",
                 "para_HB", "para_one", "uniform.gamma"], 
-                awsem_param_path="/home/alex/packages/awsemmd/parameters",
-                lammps_exe="/home/alex/packages/lammps-9Oct12/src/lmp_serial"):
+                awsem_param_path="/home/alex/packages/awsemmd/parameters")
 
     seqfile = "{}.seq".format(name)
     memfile = "{}.mem".format(name)
@@ -220,7 +219,4 @@ def run_constant_temp(model, traj, name, T, n_steps, n_steps_out, frag_strength,
                                 topfile, seqfile, CA_idxs, CB_idxs, O_idxs,
                                 n_steps_xtc=n_steps_out)
         fout.write(lammps_in_string)
-
-    # Run the simulation
-    sb.call("{} < {}".format(lammps_exe, infile), shell=True)
 
