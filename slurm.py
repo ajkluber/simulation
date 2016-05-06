@@ -1,7 +1,8 @@
 
 def make_script_string(commands, jobname, gpus=False, partition="commons", 
         walltime="23:55:00", email=False, emailtype="ae", nodes=1, 
-        ntasks_per_node=1, mem_per_cpu=False, exclusive=False):
+        ntasks_per_node=1, mem_per_cpu=False, exclusive=False,
+        cd_slurm_dir=True):
     """Return slurm script string that can be written to file
     
     Parameters
@@ -37,7 +38,10 @@ def make_script_string(commands, jobname, gpus=False, partition="commons",
         slurm_string +="#SBATCH --mail-user=%s\n" % email
         if emailtype:
             slurm_string +="#SBATCH --mail-type=%s\n" % emailtype 
-    slurm +="cd $SLURM_SUBMIT_DIR\n\n"
+    if cd_slurm_dir:
+        slurm +="cd $SLURM_SUBMIT_DIR\n\n"
+    else:
+        slurm +="\n"
     slurm += commands
     return slurm
 
