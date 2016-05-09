@@ -337,14 +337,14 @@ def calculate_observable(trajfiles, observable, chunksize=1000, collect=True, sa
             obs_all.append(obs_traj)
 
         if saveas is not None:
-            dir = os.path.dirname(trajfiles[n])
+            trajdir = os.path.dirname(trajfiles[n])
             if savepath is not None:
                 # Save observable in another directory
-                basename = os.path.basename(dir)
+                basename = os.path.basename(trajdir)
                 np.savetxt("%s/%s/%s" % (savepath,basename,saveas),obs_traj)
             else:
                 # Save observable next to trajectory 
-                np.savetxt("%s/%s" % (dir,saveas),obs_traj)
+                np.savetxt("%s/%s" % (trajdir,saveas),obs_traj)
     return obs_all
 
 def bin_observable(trajfiles, observable, binning_coord, bin_edges, chunksize=10000):
