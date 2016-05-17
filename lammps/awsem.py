@@ -184,7 +184,8 @@ def prep_constant_temp(model, traj, name, T, n_steps, n_steps_out, frag_strength
                 debye=False, awsem_other_param_files=["anti_HB", 
                 "anti_NHB", "anti_one", "burial_gamma.dat",  "gamma.dat",
                 "para_HB", "para_one", "uniform.gamma"], 
-                awsem_param_path="/home/alex/packages/awsemmd/parameters"):
+                awsem_param_path="/home/alex/packages/awsemmd/parameters", 
+                extra_group_defs="", extra_fix_defs="", damping_const=10., tchain=5):
 
     seqfile = "{}.seq".format(name)
     memfile = "{}.mem".format(name)
@@ -217,6 +218,11 @@ def prep_constant_temp(model, traj, name, T, n_steps, n_steps_out, frag_strength
     with open(infile, "w") as fout:
         lammps_in_string = input_script.get_awsem_in_script(T, n_steps,
                                 topfile, seqfile, CA_idxs, CB_idxs, O_idxs,
-                                n_steps_xtc=n_steps_out)
+                                n_steps_xtc=n_steps_out, 
+                                extra_group_defs=extra_group_defs,
+                                extra_fix_defs=extra_fix_defs,
+                                integrator="Langevin",
+                                damping_const=damping_const, tchain=tchain)
+
         fout.write(lammps_in_string)
 
