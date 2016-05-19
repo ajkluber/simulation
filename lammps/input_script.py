@@ -79,7 +79,7 @@ def get_awsem_in_script(T, nsteps, topfile, seqfile, CA_idxs, CB_HB_idxs, O_idxs
 
     fixid += 1
     aw_string += int_string
-    aw_string += "# This fix sets the AWSEM force field"
+    aw_string += "# This fix sets the AWSEM force field\n"
     aw_string += "fix {} alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data {}\n\n".format(fixid, seqfile)
 
     aw_string += "# Extra fixes for e.g. umbrella sampling.\n"
