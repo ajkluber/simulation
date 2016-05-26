@@ -181,11 +181,12 @@ def get_solvent_barrier():
 0.00 2.04 0.57 0.57 0.36 1.11 1.17 -1.52 0.87 0.67 0.79 1.47 1.03 1.00 -0.10 0.26 0.37 1.21 1.15 0.39\n\n"""
 
 def prep_constant_temp(model, traj, name, T, n_steps, n_steps_out, frag_strength, frag_mem_string,
-                debye=False, awsem_other_param_files=["anti_HB", 
+                awsem_other_param_files=["anti_HB", 
                 "anti_NHB", "anti_one", "burial_gamma.dat",  "gamma.dat",
                 "para_HB", "para_one", "uniform.gamma"], 
                 awsem_param_path="/home/alex/packages/awsemmd/parameters", 
-                extra_group_defs="", extra_fix_defs="", damping_const=10., tchain=5):
+                extra_group_defs="", extra_fix_defs="", damping_const=10., tchain=5, 
+                ssbias=False, debye=False):
 
     seqfile = "{}.seq".format(name)
     memfile = "{}.mem".format(name)
@@ -203,7 +204,7 @@ def prep_constant_temp(model, traj, name, T, n_steps, n_steps_out, frag_strength
 
     # Write awsem parameter files
     writer = mdb.models.output.AWSEMLammpsFiles(model)
-    writer.write_simulation_files(traj, topfile, seqfile)
+    writer.write_simulation_files(traj, topfile, seqfile, ssbias=ssbias)
 
     for filename in awsem_other_param_files:
         shutil.copy("{}/{}".format(awsem_param_path, filename), ".")
@@ -212,7 +213,7 @@ def prep_constant_temp(model, traj, name, T, n_steps, n_steps_out, frag_strength
         fout.write(frag_mem_string)
 
     with open("fix_backbone_coeff.data", "w") as fout:
-        fout.write(get_fix_backbone_coeff(debye=False, frag_mem_file=memfile, frag_mem_strength=frag_strength))
+        fout.write(get_fix_backbone_coeff(debye=debye, frag_mem_file=memfile, frag_mem_strength=frag_strength))
 
     # Simulation instructions file
     with open(infile, "w") as fout:
