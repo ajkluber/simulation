@@ -38,7 +38,7 @@ class AwsemParameters(object):
 #
 #    return mem_string
 
-def get_fix_backbone_coeff(debye=True, frag_mem_file=None, frag_mem_strength=1):
+def get_fix_backbone_coeff(debye=True, ssbias=False, frag_mem_file=None, frag_mem_strength=1):
     coeff_string = ""
     coeff_string += get_chain()
     coeff_string += get_chi()
@@ -46,7 +46,8 @@ def get_fix_backbone_coeff(debye=True, frag_mem_file=None, frag_mem_strength=1):
     coeff_string += get_epsilon()
     coeff_string += get_rama()
     coeff_string += get_rama_p()
-    coeff_string += get_ssweight()
+    if ssbias:
+        coeff_string += get_ssweight()
     coeff_string += get_abc()
     coeff_string += get_dssp_hydrgn()
     coeff_string += get_p_ap()
@@ -71,6 +72,9 @@ def get_chi():
 
 def get_excluded():
     return "[Excluded]\n5.0 3.0\n5.0 4.0\n\n"
+
+#def get_excluded_p():
+#    return "[Excluded_P]\n4\n1.0 3.0\n1.0 4.0\n\n"
 
 def get_epsilon():
     return "[Epsilon]\n1.0\n\n"
@@ -213,7 +217,7 @@ def prep_constant_temp(model, traj, name, T, n_steps, n_steps_out, frag_strength
         fout.write(frag_mem_string)
 
     with open("fix_backbone_coeff.data", "w") as fout:
-        fout.write(get_fix_backbone_coeff(debye=debye, frag_mem_file=memfile, frag_mem_strength=frag_strength))
+        fout.write(get_fix_backbone_coeff(debye=debye, ssbias=ssbias, frag_mem_file=memfile, frag_mem_strength=frag_strength))
 
     # Simulation instructions file
     with open(infile, "w") as fout:
