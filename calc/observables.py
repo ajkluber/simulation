@@ -3,7 +3,6 @@ import numpy as np
 
 import mdtraj
 
-from model_builder.models.pairwise_potentials import get_pair_potential
 
 # Should model code after pyemma and mdtraj packages.
 
@@ -256,7 +255,7 @@ class StepContactSum(StepContacts):
         return np.sum((r <= self.r0).astype(int),axis=1)
 
 class PairEnergy(object):
-    """Pairwise energy"""
+    """Pairwise energy DEPRECATED"""
 
     def __init__(self, top, pairs, pair_type, eps, pair_params, periodic=False):
         self.top = top
@@ -269,6 +268,7 @@ class PairEnergy(object):
         self.symbol = "$E_i$"
     
     def map(self,traj):
+        from model_builder.models.pairwise_potentials import get_pair_potential
         r = mdtraj.compute_distances(traj, self.pairs, periodic=self.periodic)
         Epair = np.zeros((traj.n_frames, self.dimension), float)
         for i in range(self.dimension):
@@ -277,7 +277,7 @@ class PairEnergy(object):
         return Epair
 
 class PairEnergySum(PairEnergy):
-    """Sum of pairwise energy"""
+    """Sum of pairwise energy DEPRECATED"""
 
     def __init__(self, top, pairs, pair_type, eps, pair_params, periodic=False):
         PairEnergy.__init__(self, top, pairs, pair_type, eps, pair_params, periodic=periodic)
@@ -285,6 +285,7 @@ class PairEnergySum(PairEnergy):
         self.symbol = "$E$"
     
     def map(self,traj):
+        from model_builder.models.pairwise_potentials import get_pair_potential
         r = mdtraj.compute_distances(traj, self.pairs, periodic=self.periodic)
         Epair = np.zeros((traj.n_frames, self.dimension), float)
         for i in range(self.pairs.shape[0]):
