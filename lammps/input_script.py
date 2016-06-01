@@ -53,15 +53,35 @@ def fix_langevin_integrator(T, damping_const):
 
     string = "# Set integrator, temperature, damping constant.\n"
     string += "velocity all create {:.2f} {:d}\n".format(T, np.random.randint(int(1E3), int(1E6)))
-    string += "fix 1 all langevin {0:.2f} {0:.2f} {1:.1f} {2:d}\n".format(T, damping_const, np.random.randint(int(1E3), int(1E6)))
-    string += "fix 2 all nve\n\n"
-    return string, 2
+    string += "fix thermostat all langevin {0:.2f} {0:.2f} {1:.1f} {2:d}\n".format(T, damping_const, np.random.randint(int(1E3), int(1E6)))
+    string += "fix integrator all nve\n\n"
+    return string
 
 def fix_Nose_Hoover_integrator(T, damping_const, tchain):
     string = "# Set integrator, temperature, damping constant.\n"
     string += "velocity all create {:.2f} {:d}\n".format(T, np.random.randint(int(1E5), int(1E6)))
-    string += "fix 1 all nvt temp {0:.2f} {0:.2f} {1:.1f} tchain {2:d}\n\n".format(T, damping_const, tchain)
-    return string, 1
+    string += "fix integrator all nvt temp {0:.2f} {0:.2f} {1:.1f} tchain {2:d}\n\n".format(T, damping_const, tchain)
+    return string
+
+
+def fix_write_energy_file(n_steps_out):
+    return """variable E_bond  equal emol
+variable E_chain equal f_hamiltonian[1]
+variable E_excl  equal epair
+variable E_chi   equal f_hamiltonian[3]
+variable E_rama  equal f_hamiltonian[4]
+variable E_dssp  equal f_hamiltonian[6]
+variable E_pap   equal f_hamiltonian[7]
+variable E_water equal f_hamiltonian[8]
+variable E_helix equal f_hamiltonian[10]
+variable E_amhgo equal f_hamiltonian[11]
+variable E_fmem  equal f_hamiltonian[12]
+variable E_Pot   equal v_E_chain+v_E_chi+v_E_rama+v_E_water+v_E_helix+v_E_fmem+v_E_excl+v_E_bond+v_E_dssp+v_E_pap+v_E_amhgo
+variable E_K     equal ke
+variable E_total equal v_E_Pot+v_E_K
+variable Step equal step
+fix energy all print {} "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_excl} ${E_dssp} ${E_pap} ${E_water} ${E_helix} ${E_fmem} ${E_amhgo} ${E_Pot}" file energy screen no""".format(n_steps_out)
+
 
 def get_awsem_in_script(T, nsteps, topfile, seqfile, CA_idxs, CB_HB_idxs, O_idxs,
             boundary=["p","p","p"], n_steps_xtc=1000, integrator="langevin",
@@ -73,23 +93,27 @@ def get_awsem_in_script(T, nsteps, topfile, seqfile, CA_idxs, CB_HB_idxs, O_idxs
     aw_string += group_def_string(CA_idxs, CB_HB_idxs, O_idxs, extra_group_defs)
 
     if integrator == "Langevin":
-        int_string, fixid = fix_langevin_integrator(T, damping_const)
+        int_string = fix_langevin_integrator(T, damping_const)
     elif integrator == "Nose-Hoover":
-        int_string, fixid = fix_Nose_Hoover_integrator(T, damping_const, tchain)
+        int_string = fix_Nose_Hoover_integrator(T, damping_const, tchain)
 
-    fixid += 1
     aw_string += int_string
     aw_string += "# This fix sets the AWSEM force field\n"
-    aw_string += "fix {} alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data {}\n\n".format(fixid, seqfile)
+    aw_string += "fix hamiltonian alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data {}\n\n".format(seqfile)
 
     aw_string += "# Extra fixes for e.g. umbrella sampling.\n"
     aw_string += extra_fix_defs
 
     aw_string += "# Output\n"
     aw_string += "thermo {:d}\n".format(n_steps_xtc)
-    aw_string += "dump 1 all xtc {:d} {}\n\n".format(n_steps_xtc, trajname)
+    aw_string += "dump coordinates all xtc {:d} {}\n\n".format(n_steps_xtc, trajname)
+
+    aw_string += "# Output energies to file called 'energy'\n"
+    aw_string += fix_write_energy_file(n_steps_xtc)
+
 
     aw_string += "# Run simulations\n"
+    aw_string += "restart {:d}\n".format(nsteps)
     aw_string += "reset_timestep  0\n"
     aw_string += "run {:d}\n".format(nsteps)
 
