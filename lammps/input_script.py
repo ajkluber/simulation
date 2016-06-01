@@ -80,7 +80,7 @@ variable E_Pot   equal v_E_chain+v_E_chi+v_E_rama+v_E_water+v_E_helix+v_E_fmem+v
 variable E_K     equal ke
 variable E_total equal v_E_Pot+v_E_K
 variable Step equal step
-fix energy all print {} "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_excl} ${E_dssp} ${E_pap} ${E_water} ${E_helix} ${E_fmem} ${E_amhgo} ${E_Pot}" file energy screen no""".format(n_steps_out)
+fix energy all print %d "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_excl} ${E_dssp} ${E_pap} ${E_water} ${E_helix} ${E_fmem} ${E_amhgo} ${E_Pot}" file energy screen no""" % n_steps_out
 
 
 def get_awsem_in_script(T, nsteps, topfile, seqfile, CA_idxs, CB_HB_idxs, O_idxs,
