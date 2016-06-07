@@ -113,7 +113,7 @@ def get_awsem_in_script(T, nsteps, topfile, seqfile, CA_idxs, CB_HB_idxs, O_idxs
 
 
     aw_string += "# Run simulations\n"
-    aw_string += "restart {:d} restart\n\n".format(nsteps)
+    aw_string += "restart {:d} restart1 restart2\n\n".format(n_steps_xtc)
     aw_string += "reset_timestep  0\n"
     aw_string += "run {:d}\n".format(nsteps)
 
