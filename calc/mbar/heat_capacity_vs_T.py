@@ -3,6 +3,8 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
+import util
+
 global KB
 KB = 0.0083145
 

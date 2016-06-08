@@ -7,9 +7,9 @@ import pymbar
 global KB
 KB = 0.0083145
 
-def get_organized_temps(tempfile):
+def get_organized_temps(tempsfile):
     """Get directory names by temperature"""
-    with open(tempfile, "r") as fin:
+    with open(tempsfile, "r") as fin:
         temperature_dirs = fin.read().split()
 
     organized_temps = {}
@@ -25,7 +25,7 @@ def get_organized_temps(tempfile):
 
 def get_mbar_multi_temp(tempsfile, n_interpolate):
 
-    organized_temps = get_organized_temps(tempfile)
+    organized_temps = get_organized_temps(tempsfile)
 
     print "loading energies"
     E, u_kn, N_k, beta = get_energies_ukn(organized_temps, n_interpolate=n_interpolate)
@@ -39,9 +39,10 @@ def get_mbar_multi_temp(tempsfile, n_interpolate):
             pre_N_k = mbar_pkl["N_k"]
             pre_f_k = mbar_pkl["f_k"]
             pre_beta = mbar_pkl["beta"]
-        if np.allclose(pre_beta, beta):
-            print "using precalculated f_k"
-            f_k = pre_f_k
+        if len(beta) == len(pre_beta):
+            if np.allclose(pre_beta, beta):
+                print "using precalculated f_k"
+                f_k = pre_f_k
     print "solving mbar"
     mbar = pymbar.MBAR(u_kn, N_k, initial_f_k=f_k)
 
