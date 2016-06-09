@@ -84,7 +84,7 @@ fix energy all print %d "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_exc
 
 
 def get_awsem_in_script(T, nsteps, topfile, seqfile, CA_idxs, CB_HB_idxs, O_idxs,
-            boundary=["p","p","p"], n_steps_xtc=1000, integrator="langevin",
+            boundary=["p","p","p"], n_steps_out=1000, integrator="langevin",
             damping_const=100., tchain=5, 
             trajname="traj.xtc", extra_group_defs="", extra_fix_defs=""):
 
@@ -101,19 +101,23 @@ def get_awsem_in_script(T, nsteps, topfile, seqfile, CA_idxs, CB_HB_idxs, O_idxs
     aw_string += "# This fix sets the AWSEM force field\n"
     aw_string += "fix hamiltonian alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data {}\n\n".format(seqfile)
 
-    aw_string += "# Extra fixes for e.g. umbrella sampling.\n"
-    aw_string += extra_fix_defs
+    if not (extra_fix_defs == ""):
+        aw_string += "# Extra fixes for e.g. umbrella sampling.\n"
+        aw_string += extra_fix_defs
 
     aw_string += "# Output\n"
-    aw_string += "thermo {:d}\n".format(n_steps_xtc)
-    aw_string += "dump coordinates all xtc {:d} {}\n\n".format(n_steps_xtc, trajname)
+    aw_string += "thermo {:d}\n".format(n_steps_out)
+    if trajname.endswith("xtc"):
+        aw_string += "dump coordinates all xtc {:d} {}\n\n".format(n_steps_out, trajname)
+    elif trajname.endswith("dcd"):
+        aw_string += "dump coordinates all dcd {:d} {}\n\n".format(n_steps_out, trajname)
 
     aw_string += "# Output energies to file called 'energy'\n"
-    aw_string += fix_write_energy_file(n_steps_xtc)
+    aw_string += fix_write_energy_file(n_steps_out)
 
 
     aw_string += "# Run simulations\n"
-    aw_string += "restart {:d} restart1 restart2\n\n".format(n_steps_xtc)
+    aw_string += "restart {:d} restart1 restart2\n\n".format(n_steps_out)
     aw_string += "reset_timestep  0\n"
     aw_string += "run {:d}\n".format(nsteps)
 
