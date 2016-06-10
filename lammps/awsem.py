@@ -224,7 +224,7 @@ def prep_constant_temp(model, traj, name, T, n_steps, n_steps_out,
     with open(infile, "w") as fout:
         lammps_in_string = input_script.get_awsem_in_script(T, n_steps,
                                 topfile, seqfile, CA_idxs, CB_idxs, O_idxs,
-                                n_steps_xtc=n_steps_out, trajname=trajname,
+                                n_steps_out=n_steps_out, trajname=trajname,
                                 extra_group_defs=extra_group_defs,
                                 extra_fix_defs=extra_fix_defs,
                                 integrator="Langevin",
