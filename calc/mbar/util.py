@@ -23,12 +23,12 @@ def get_organized_temps(tempsfile):
 
     return organized_temps
 
-def get_mbar_multi_temp(tempsfile, n_interpolate):
+def get_mbar_multi_temp(tempsfile, n_interpolate, engfile="Etot.dat", usecols=(1,)):
 
     organized_temps = get_organized_temps(tempsfile)
 
     print "loading energies"
-    E, u_kn, N_k, beta = get_energies_ukn(organized_temps, n_interpolate=n_interpolate)
+    E, u_kn, N_k, beta = get_energies_ukn(organized_temps, n_interpolate=n_interpolate, engfile=engfile, usecols=usecols)
 
     f_k = None
     # calculate mbar object
