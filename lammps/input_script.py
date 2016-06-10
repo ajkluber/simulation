@@ -86,7 +86,7 @@ fix energy all print %d "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_exc
 def get_awsem_in_script(T, nsteps, topfile, seqfile, CA_idxs, CB_HB_idxs, O_idxs,
             boundary=["p","p","p"], n_steps_out=1000, integrator="langevin",
             damping_const=100., tchain=5, 
-            trajname="traj.xtc", extra_group_defs="", extra_fix_defs=""):
+            trajname="traj.dcd", extra_group_defs="", extra_fix_defs=""):
 
     aw_string = header_string(boundary)
     aw_string += data_and_pair_coeff_string(topfile)
