@@ -8,7 +8,7 @@ import util
 global KB
 KB = 0.0083145
 
-def calculate_Cv(tempsfile, n_interpolate=4, display=False, engfile="Etot.dat"):
+def calculate_Cv(tempsfile, n_interpolate=5, display=False, engfile="Etot.dat", usecols=(1,)):
     """Calculate heat capacity curve as a function of temperature
     
     Parameters
@@ -23,7 +23,7 @@ def calculate_Cv(tempsfile, n_interpolate=4, display=False, engfile="Etot.dat"):
     display : bool
         If true: display the plot to the screen. Else just save.
     """
-    mbar, beta, E, u_kn, N_k = util.get_mbar_multi_temp(tempsfile, n_interpolate)
+    mbar, beta, E, u_kn, N_k = util.get_mbar_multi_temp(tempsfile, n_interpolate, engfile=engfile, usecols=usecols)
 
     print "calculating Cv"
     U, dU = mbar.computeExpectations(E, compute_uncertainty=False)
