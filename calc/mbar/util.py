@@ -2,7 +2,6 @@ import os
 import pickle
 import numpy as np
 
-import pymbar
 
 global KB
 KB = 0.0083145
@@ -24,6 +23,23 @@ def get_organized_temps(tempsfile):
     return organized_temps
 
 def get_mbar_multi_temp(tempsfile, n_interpolate, engfile="Etot.dat", usecols=(1,)):
+    """Prepare the MBAR object with multiple temperature data
+    
+    Parameters
+    ----------
+    tempsfile : str
+        Name of the file that holds the directory names.
+    n_interpolate : int
+        Number of temperatures to interpolate.
+    engfile : str, opt.
+        Expected filename for total potential energy.
+    usecols : tuple
+        Column 
+        
+
+
+    """
+    import pymbar
 
     organized_temps = get_organized_temps(tempsfile)
 
