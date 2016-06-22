@@ -105,7 +105,7 @@ def default_awsem_features(feat, pair_skip=5):
 
 
 def multi_temperature_dtram(feat, trajfiles, temperatures, stride=1, tica_lag=100,
-        keep_tica_dims=20, n_clusters=100, tram_lag=400, engfile="Etot.dat", usecols=(1,)):
+        keep_tica_dims=20, n_clusters=100, tram_lag=100, engfile="Etot.dat", usecols=(1,)):
     """
     Parameters
     ----------
@@ -130,17 +130,20 @@ def multi_temperature_dtram(feat, trajfiles, temperatures, stride=1, tica_lag=10
 
     inp = coor.source(trajfiles, feat)
 
-    tica_obj = coor.tica(inp, lag=tica_lag, stride=stride)
-    Y = tica_obj.get_output(dimensions=np.arange(0,keep_tica_dims,1))
+    tica_obj = coor.tica(inp, lag=tica_lag, dim=keep_tica_dims, stride=stride)
+    Y = tica_obj.get_output()
 
     cl = coor.cluster_kmeans(data=Y, k=n_clusters, stride=stride)
     dtrajs = cl.dtrajs
 
     # dimensionless energy
-    energy_trajs = [ beta[i]*np.loadtxt("{}/{}".format(dirs[i], engfile), usecols=usecols) for i in range(len(dirs)) ]
+    if engfile.endswith("npy"):
+        energy_trajs = [ beta[i]*np.load("{}/{}".format(dirs[i], engfile)) for i in range(len(dirs)) ]
+    else:
+        energy_trajs = [ beta[i]*np.loadtxt("{}/{}".format(dirs[i], engfile), usecols=usecols) for i in range(len(dirs)) ]
     temp_trajs = [ KB*temperatures[i]*np.ones(energy_trajs[i].shape[0], float) for i in range(len(dirs)) ]
 
-    # TRAM approach
+    # dTRAM approach
     tram = thermo.estimate_multi_temperature(energy_trajs, temp_trajs,
             dtrajs, energy_unit='kT', temp_unit='kT', estimator='dtram',
             lag=tram_lag)
