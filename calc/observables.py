@@ -342,10 +342,17 @@ def calculate_observable(trajfiles, observable, chunksize=1000, collect=True, sa
             if savepath is not None:
                 # Save observable in another directory
                 basename = os.path.basename(trajdir)
-                np.savetxt("%s/%s/%s" % (savepath,basename,saveas),obs_traj)
+                if saveas.endswith("npy"):
+                    np.save("%s/%s/%s" % (savepath,basename,saveas),obs_traj)
+                else:
+                    np.savetxt("%s/%s/%s" % (savepath,basename,saveas),obs_traj)
             else:
                 # Save observable next to trajectory 
-                np.savetxt("%s/%s" % (trajdir,saveas),obs_traj)
+                if saveas.endswith("npy"):
+                    np.save("%s/%s" % (trajdir,saveas),obs_traj)
+                else:
+                    np.savetxt("%s/%s" % (trajdir,saveas),obs_traj)
+
     return obs_all
 
 def bin_observable(trajfiles, observable, binning_coord, bin_edges, chunksize=10000):
