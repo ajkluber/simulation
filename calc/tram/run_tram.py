@@ -5,117 +5,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import mdtraj as md
-import pyemma
+import pyemma.thermo as thermo
 import pyemma.coordinates as coor
 import pyemma.msm as msm
 import pyemma.plots as mplt
 
 import util 
+
 global KB
 KB = 0.0083145
-
-#    # estimate MSM at one temperature to get idea of lagtime
-#    lags = [1,2,5,10,20,50,100,400,1000]
-#    its = msm.its(dtrajs, lags=lags)
-#
-#    mplt.plot_implied_timescales(its, ylog=False)
-#    plt.title("msm/{}".format(name))
-#    plt.savefig("msm/{}_its.png".format(name),bbox_inches="tight")
-#    plt.savefig("msm/{}_its.pdf".format(name),bbox_inches="tight")
 
 class DummyTram(object):
     def __init__(self):
         pass
 
 
-def assign_pair_distance_dihedral_features(topfile, pairsfile):
-    """Assign features"""
-    ref = md.load(topfile)
-    dihedral_idxs = np.array([ [i, i + 1, i + 2, i + 3] for i in range(ref.n_residues - 3) ])
-    pair_idxs = np.loadtxt(pairsfile, dtype=int) - 1
 
-    # cluster trajectories
-    feat = coor.featurizer(topfile)
-    feat.add_distances(pair_idxs)
-    feat.add_dihedrals(dihedral_idxs)
-
-    return feat
-
-def cluster_and_estimate_dtram(feat, trajfiles, T, stride=1, tica_lag=100, tram_lag=400):
-
-    dirs = [ os.path.dirname(x) for x in trajfiles ]
-    beta = [ 1./(KB*x) for x in T ]
-
-    inp = coor.source(trajfiles, feat)
-
-    tica_obj = coor.tica(inp, lag=100, kinetic_map=True, stride=stride)
-    Y = tica_obj.get_output()
-
-    cl = coor.cluster_kmeans(data=Y, stride=stride)
-    dtrajs = cl.dtrajs
-
-    # dimensionless energy
-    energy_trajs = [ beta[i]*np.loadtxt("{}/Etot.dat".format(dirs[i]), usecols=(1,)) for i in range(len(dirs)) ]
-    temp_trajs = [ KB*T[i]*np.ones(energy_trajs[i].shape[0], float) for i in range(len(dirs)) ]
-
-
-    # TRAM approach
-    tram = pyemma.thermo.estimate_multi_temperature(energy_trajs, temp_trajs,
-            dtrajs, energy_unit='kT', temp_unit='kT', estimator='dtram',
-            lag=tram_lag)
-
-    return dirs, dtrajs, tram
-
-def save_tram_data(dirs, dtrajs, tram):
-    # save information needed to rebuild the MSM's created by dTRAM.
-    if not os.path.exists("dtram"):
-        os.mkdir("dtram")
-    os.chdir("dtram")
-
-    dtraj_info = { dirs[x]:dtrajs[x] for x in range(len(dirs)) }
-    dtraj_info["dirs"] = dirs
-    with open("dtrajs.pkl", "wb") as fhandle:
-        pickle.dump(dtraj_info, fhandle)
-
-    tram_info = {}
-    tram_info["temperatures"] = tram.temperatures/KB
-    tram_info["tram_f"] = tram.f
-    tram_info["tram_f_therm"] = tram.f_therm
-
-    for k in range(tram.nthermo):
-        temperature = tram.temperatures[k]/KB
-        tram_info["{:.2f}_active_set".format(temperature)] = tram.model_active_set[k]
-        tram_info["{:.2f}_stationary_distribution".format(temperature)] = tram.models[k].stationary_distribution
-        tram_info["{:.2f}_transition_matrix".format(temperature)] = tram.models[k].transition_matrix
-
-    with open("dtram.pkl", "wb") as fhandle:
-        pickle.dump(tram_info, fhandle)
-
-    os.chdir("..")
-
-def load_dtram():
-
-    os.chdir("dtram")
-    with open("dtrajs.pkl", "rb") as fhandle:
-        dtraj_pkl = pickle.load(fhandle)
-        dirs = dtraj_pkl["dirs"]
-        dtrajs = [ dtraj_pkl[x] for x in dirs ]
-
-    dtram = DummyTram()
-    with open("dtram.pkl", "rb") as fhandle:
-        dtram_pkl = pickle.load(fhandle)
-        dtram.temperatures = dtram_pkl["temperatures"]*KB
-        dtram.f = dtram_pkl["tram_f"]
-        dtram.f_therm = dtram_pkl["tram_f_therm"]
-        dtram.ntherm = len(dtram.temperatures)
-
-        dtram.model_active_set = [ dtram_pkl["{:.2f}_active_set".format(x)] for x in dtram.temperatures/KB ]
-        model_pi = [ dtram_pkl["{:.2f}_stationary_distribution".format(x)] for x in dtram.temperatures/KB ]
-        model_T = [ dtram_pkl["{:.2f}_transition_matrix".format(x)] for x in dtram.temperatures/KB ]
-        dtram.models = [ msm.MSM(model_T[x], pi=model_pi[x]) for x in range(dtram.ntherm) ]
-
-    os.chdir("..")
-    return dirs, dtrajs, dtram
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -126,7 +31,6 @@ if __name__ == "__main__":
     parser.add_argument("--stride", default=1, type=int)
     parser.add_argument("--display", action="store_true")
     args = parser.parse_args()
-
 
     print args
 
@@ -160,12 +64,13 @@ if __name__ == "__main__":
     if not os.path.exists("dtram/dtram.pkl"):
         # estimate dtram 
         print "solving tram"
-        feat = assign_pair_distance_dihedral_features(topfile, pairsfile)
-        dirs, dtrajs, dtram = cluster_and_estimate_dtram(feat, trajfiles, T, tram_lag=tram_lag)
-        save_tram_data(dirs, dtrajs, dtram)
+        feat = coor.featurizer(topfile)
+        feat = util.default_ca_sbm_features(feat, topfile, pairsfile=pairsfile)
+        dirs, dtrajs, dtram = util.multi_temperature_dtram(feat, trajfiles, T, tram_lag=tram_lag)
+        util.save_multi_temperature_dtram(dirs, dtrajs, dtram)
     else:
         print "loading tram"
-        dirs, dtrajs, dtram = load_dtram()
+        dirs, dtrajs, dtram = util.load_multi_temperature_dtram()
     
     # define bin edges for clustering observable
     bins = np.linspace(0, 133, 50)
