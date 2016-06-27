@@ -12,16 +12,6 @@ import pyemma.plots as mplt
 
 import util 
 
-global KB
-KB = 0.0083145
-
-class DummyTram(object):
-    def __init__(self):
-        pass
-
-
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("pairsfile")
