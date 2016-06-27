@@ -205,7 +205,7 @@ def prep_constant_temp(model, traj, name, T, n_steps, n_steps_out,
     # Save initial conditions
     model.starting_traj[0].save("ref.gro")
     model.starting_traj[0].save("ref.pdb")
-    mdb.models.mappings.viz_bonds.write_bonds_tcl(model.mapping.top)
+    mdb.models.output.viz_bonds.write_bonds_tcl(model.mapping.top)
 
     # Write awsem parameter files
     writer = mdb.models.output.AWSEMLammpsFiles(model)
