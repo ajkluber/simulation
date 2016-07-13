@@ -48,26 +48,6 @@ rm conf.gro mdout.mdp topol_4.5.tpr traj.trr md.log ener.edr confout.gro Energy.
 """.format(path_to_tables)
     return script
 
-def prep_minimization(path_to_ini, name):
-    """Save model files if needed"""
-
-    # Run parameters
-    mdp = simulation.mdp.energy_minimization()
-    with open("em.mdp", "w") as fout:
-        fout.write(mdp)
-
-    # Load model
-    cwd = os.getcwd()
-    os.chdir(path_to_ini)
-    model, fitopts = mdb.inputs.load_model(name + ".ini")
-
-    os.chdir(cwd)
-
-    # Save model files
-    writer = mdb.models.output.GromacsFiles(model)
-    writer.write_simulation_files(path_to_tables=path_to_ini + "/tables")
-
-
 def run_minimization(path_to_tables, frame_idxs, traj, rank):
     """Perform energy minimization on each frame"""
 
@@ -95,7 +75,7 @@ def run_minimization(path_to_tables, frame_idxs, traj, rank):
 
             # record frame idx
             with open("frames_fin.dat", "a") as fout:
-                fout.write("{d}\n".format(frame_idxs[i]))
+                fout.write(str(frame_idxs[i]) + "\n")
 
     os.chdir("..")
 
@@ -108,6 +88,11 @@ if __name__ == "__main__":
                         type=str,
                         required=True,
                         help="Name of .ini file.")
+
+    parser.add_argument("--topfile",
+                        type=str,
+                        required=True,
+                        help="Name of topology file. e.g. pdb")
 
     parser.add_argument("--path_to_ini",
                         type=str,
@@ -131,12 +116,13 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     name = args.name
+    topfile = args.topfile
     path_to_ini = args.path_to_ini
     n_frames = args.n_frames
     stride = args.stride
 
     comm = MPI.COMM_WORLD   
-    size = comm.Get_size()  
+    size = comm.Get_size()
     rank = comm.Get_rank()
 
     if rank == 0:
@@ -144,10 +130,27 @@ if __name__ == "__main__":
             os.mkdir("inherent_structures")
         if not os.path.exists(path_to_ini + "/tables"):
             os.mkdir(path_to_ini + "/tables")
+        
+        # save simulation files and energy minimization protocol.
+        os.chdir("inherent_structures")
+        mdp = simulation.mdp.energy_minimization()
+        with open("em.mdp", "w") as fout:
+            fout.write(mdp)
+
+        # load model
+        cwd = os.getcwd()
+        os.chdir(path_to_ini)
+        model, fitopts = mdb.inputs.load_model(name + ".ini")
+        os.chdir(cwd)
+
+        # save model files
+        writer = mdb.models.output.GromacsFiles(model)
+        writer.write_simulation_files(path_to_tables=path_to_ini + "/tables")
+        os.chdir("..")
+
     comm.Barrier()
 
     os.chdir("inherent_structures")
-    prep_minimization(path_to_ini, name)
 
     # Distribute trajectory chunks to each processor
     all_frame_idxs = np.arange(0, n_frames)
@@ -159,7 +162,7 @@ if __name__ == "__main__":
 
     if rank == 0:
         rank_i = 0
-        for chunk in mdtraj.iterload("traj.xtc", top="Native.pdb", chunk=chunksize):
+        for chunk in mdtraj.iterload("../traj.xtc", top=topfile, chunk=chunksize):
             sub_chunk = chunk.slice(np.arange(0, chunk.n_frames, stride))
 
             if (rank_i == 0) and (rank == 0):
