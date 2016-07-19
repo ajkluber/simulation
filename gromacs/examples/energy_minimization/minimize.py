@@ -1,4 +1,5 @@
 import os
+import time
 import argparse
 import logging
 import numpy as np
@@ -130,6 +131,11 @@ if __name__ == "__main__":
             os.mkdir("inherent_structures")
         if not os.path.exists(path_to_ini + "/tables"):
             os.mkdir(path_to_ini + "/tables")
+
+        with open("size", "w") as fout:
+            fout.write(str(size))
+        with open("stride", "w") as fout:
+            fout.write(str(stride))
         
         # save simulation files and energy minimization protocol.
         os.chdir("inherent_structures")
@@ -179,6 +185,17 @@ if __name__ == "__main__":
     run_minimization(path_to_ini + "/tables", frame_idxs, traj, rank)
 
     # If all trajectories finished then bring them together.
+    comm.Barrier()
+
+    frame_idxs = np.concatenate([ np.loadtxt("rank_" + str(x) + "/frames_fin.dat", dtype=int) for x in range(size) ])
+    Etot = np.concatenate([ np.loadtxt("rank_" + str(x) + "/Etot.dat") for x in range(size) ])
+    np.savetxt("frames_fin.dat", frame_idxs, fmt="%5d")
+    np.save("Etot.npy", Etot)
+
+    cat_trajs = " ".join([ "rank_" + str(x) + "/all_frames.xtc" for x in range(size) ])
+    with open("trjcat.log", "w") as fout:
+        sb.call("trjcat_sbm -f " + cat_trajs + " -o traj.xtc -cat",
+            shell=True, stderr=fout, stdout=fout)
 
     os.chdir("..")
 
