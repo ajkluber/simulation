@@ -1,4 +1,5 @@
 import os
+import time
 import argparse
 import logging
 import numpy as np
@@ -13,23 +14,23 @@ import simulation.slurm
 
 import model_builder as mdb
 
-def minimization_script():
+def minimization_script(path_to_tables):
     """Takes a starting structure and energy minimizes it."""
     script = \
 """#!/bin/bash
 # run energy minimization
 grompp_sbm -n ../index.ndx -f ../em.mdp -c conf.gro -p ../topol.top -o topol_4.5.tpr &> grompp.log
-mdrun_sbm -s topol_4.5.tpr -table ../tables/table.xvg -tablep ../tables/tablep.xvg -tableb ../tables/table &> mdrun.log
+mdrun_sbm -nt 1 -s topol_4.5.tpr -table {0}/table.xvg -tablep {0}/tablep.xvg -tableb {0}/table &> mdrun.log
 
 # get final energy 
 g_energy_sbm -f ener.edr -o Energy -xvg none &> energy.log << EOF
 Potential
 EOF
-tail -n 1 Energy.xvg | awk '{ print $(NF) }' >> Etot.dat
+tail -n 1 Energy.xvg | awk '{{ print $(NF) }}' >> Etot.dat
 
 # get final structure 
-fstep=`grep "Low-Memory BFGS Minimizer converged" md.log | awk '{ print $(NF-1) }'`
-trjconv_sbm -f traj.trr -s topol_4.5.tpr -n ../index.ndx -o temp_frame.xtc -dump ${fstep} &> trjconv.log << EOF
+fstep=`grep "Low-Memory BFGS Minimizer converged" md.log | awk '{{ print $(NF-1) }}'`
+trjconv_sbm -f traj.trr -s topol_4.5.tpr -n ../index.ndx -o temp_frame.xtc -dump ${{fstep}} &> trjconv.log << EOF
 System
 EOF
 
@@ -45,38 +46,10 @@ fi
 
 # cleanup
 rm conf.gro mdout.mdp topol_4.5.tpr traj.trr md.log ener.edr confout.gro Energy.xvg
-"""
+""".format(path_to_tables)
     return script
 
-def prep_minimization(model_dir, name):
-    """Save model files if needed"""
-
-    # Run parameters
-    mdp = simulation.mdp.energy_minimization()
-    with open("em.mdp", "w") as fout:
-        fout.write(mdp)
-
-    # Load model
-    cwd = os.getcwd()
-    os.chdir(model_dir)
-    model, fitopts = mdb.inputs.load_model(name)
-    os.chdir(cwd)
-
-    # Save model files
-    model.save_simulation_files(savetables=False)
-    if not os.path.exists("tables"):
-        os.mkdir("tables")
-    os.chdir("tables")
-    if not os.path.exists("table.xvg"):
-        np.savetxt("table.xvg", model.tablep, fmt="%16.15e", delimiter=" ")
-    if not os.path.exists("tablep.xvg"):
-        np.savetxt("tablep.xvg", model.tablep, fmt="%16.15e", delimiter=" ")
-    for i in range(model.n_tables):
-        if not os.path.exists(model.tablenames[i]):
-            np.savetxt(model.tablenames[i], model.tables[i], fmt="%16.15e", delimiter=" ")
-    os.chdir("..")
-
-def run_minimization(frame_idxs, traj, rank):
+def run_minimization(path_to_tables, frame_idxs, traj, rank):
     """Perform energy minimization on each frame"""
 
     n_frames_out = len(frame_idxs)
@@ -95,7 +68,7 @@ def run_minimization(frame_idxs, traj, rank):
             # perform energy minimization using gromacs
             frm = traj.slice(i)
             frm.save_gro("conf.gro")
-            script = minimization_script()
+            script = minimization_script(path_to_tables)
             with open("minimize.bash", "w") as fout:
                 fout.write(script)
             cmd = "bash minimize.bash"
@@ -103,12 +76,12 @@ def run_minimization(frame_idxs, traj, rank):
 
             # record frame idx
             with open("frames_fin.dat", "a") as fout:
-                fout.write("{d}\n".format(frame_idxs[i]))
+                fout.write(str(frame_idxs[i]) + "\n")
 
     os.chdir("..")
 
 def restart_rank():
-
+    pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Energy minimization for inherent structure analysis.")
@@ -116,6 +89,11 @@ if __name__ == "__main__":
                         type=str,
                         required=True,
                         help="Name of .ini file.")
+
+    parser.add_argument("--topfile",
+                        type=str,
+                        required=True,
+                        help="Name of topology file. e.g. pdb")
 
     parser.add_argument("--path_to_ini",
                         type=str,
@@ -131,35 +109,54 @@ if __name__ == "__main__":
                         type=int,
                         default=int(6E5),
                         help="Number of frames in trajectory.")
-    
-    args = parser.parse_args()
-    name = args.name
-    model_dir = args.path_to_ini
-    n_frames = args.n_frames
-    stride = args.stride
 
     # Performance on one processor is roughly 11sec/frame. 
     # So 1proc can do about 2500 frames over 8hours.
     # Adjust the number of processors (size) and subsample (stride)
     # accordingingly
-
-    #name = "1E0G"
-    #model_dir = "/home/ajk8/scratch/6-10-15_nonnative/1E0G/random_b2_0.01/replica_1"
-    #model_dir = "/home/ajk8/scratch/6-10-15_nonnative/1E0G/random_b2_1.00/replica_1"
-    #n_frames = int(6E5)
-    #stride = 10
+    
+    args = parser.parse_args()
+    name = args.name
+    topfile = args.topfile
+    path_to_ini = args.path_to_ini
+    n_frames = args.n_frames
+    stride = args.stride
 
     comm = MPI.COMM_WORLD   
-    size = comm.Get_size()  
+    size = comm.Get_size()
     rank = comm.Get_rank()
 
     if rank == 0:
         if not os.path.exists("inherent_structures"):
             os.mkdir("inherent_structures")
+        if not os.path.exists(path_to_ini + "/tables"):
+            os.mkdir(path_to_ini + "/tables")
+
+        with open("size", "w") as fout:
+            fout.write(str(size))
+        with open("stride", "w") as fout:
+            fout.write(str(stride))
+        
+        # save simulation files and energy minimization protocol.
+        os.chdir("inherent_structures")
+        mdp = simulation.mdp.energy_minimization()
+        with open("em.mdp", "w") as fout:
+            fout.write(mdp)
+
+        # load model
+        cwd = os.getcwd()
+        os.chdir(path_to_ini)
+        model, fitopts = mdb.inputs.load_model(name + ".ini")
+        os.chdir(cwd)
+
+        # save model files
+        writer = mdb.models.output.GromacsFiles(model)
+        writer.write_simulation_files(path_to_tables=path_to_ini + "/tables")
+        os.chdir("..")
+
     comm.Barrier()
 
     os.chdir("inherent_structures")
-    prep_minimization(model_dir, name)
 
     # Distribute trajectory chunks to each processor
     all_frame_idxs = np.arange(0, n_frames)
@@ -171,7 +168,7 @@ if __name__ == "__main__":
 
     if rank == 0:
         rank_i = 0
-        for chunk in mdtraj.iterload("traj.xtc", top="Native.pdb", chunk=chunksize):
+        for chunk in mdtraj.iterload("../traj.xtc", top=topfile, chunk=chunksize):
             sub_chunk = chunk.slice(np.arange(0, chunk.n_frames, stride))
 
             if (rank_i == 0) and (rank == 0):
@@ -185,9 +182,20 @@ if __name__ == "__main__":
         traj = comm.recv(source=0, tag=11)
     #print rank, traj.n_frames, traj.time[:2]/0.5, frame_idxs[:2], traj.time[-2:]/0.5, frame_idxs[-2:]  ## DEBUGGING
 
-    run_minimization(frame_idxs, traj, rank)
+    run_minimization(path_to_ini + "/tables", frame_idxs, traj, rank)
 
     # If all trajectories finished then bring them together.
+    comm.Barrier()
+
+    frame_idxs = np.concatenate([ np.loadtxt("rank_" + str(x) + "/frames_fin.dat", dtype=int) for x in range(size) ])
+    Etot = np.concatenate([ np.loadtxt("rank_" + str(x) + "/Etot.dat") for x in range(size) ])
+    np.savetxt("frames_fin.dat", frame_idxs, fmt="%5d")
+    np.save("Etot.npy", Etot)
+
+    cat_trajs = " ".join([ "rank_" + str(x) + "/all_frames.xtc" for x in range(size) ])
+    with open("trjcat.log", "w") as fout:
+        sb.call("trjcat_sbm -f " + cat_trajs + " -o traj.xtc -cat",
+            shell=True, stderr=fout, stdout=fout)
 
     os.chdir("..")
 

@@ -103,7 +103,7 @@ def default_awsem_features(feat, pair_skip=5):
     return feat
 
 
-def multi_temperature_dtram(feat, trajfiles, temperatures, dtrajs=None, stride=1, tica_lag=100,
+def multi_temperature_tram(feat, trajfiles, temperatures, dtrajs=None, stride=1, tica_lag=100,
         keep_tica_dims=20, n_clusters=100, tram_lag=100, engfile="Etot.dat", usecols=(1,), kb=0.0083145):
     """
     Parameters
@@ -144,13 +144,13 @@ def multi_temperature_dtram(feat, trajfiles, temperatures, dtrajs=None, stride=1
     temp_trajs = [ kb*temperatures[i]*np.ones(energy_trajs[i].shape[0], float) for i in range(len(dirs)) ]
 
     # dTRAM approach
-    dtram = thermo.estimate_multi_temperature(energy_trajs, temp_trajs,
-            dtrajs, energy_unit='kT', temp_unit='kT', estimator='dtram',
-            lag=tram_lag, maxiter=2000000, maxerr=1e-14)
+    tram = thermo.estimate_multi_temperature(energy_trajs, temp_trajs,
+            dtrajs, energy_unit='kT', temp_unit='kT', estimator='tram',
+            lag=tram_lag, maxiter=2000000, maxerr=1e-10)
 
-    return dirs, dtrajs, dtram
+    return dirs, dtrajs, tram
 
-def save_multi_temperature_dtram(dirs, dtrajs, dtram):
+def save_multi_temperature_tram(dirs, dtrajs, tram):
     """Saves MEMM
 
     Parameters
@@ -159,14 +159,14 @@ def save_multi_temperature_dtram(dirs, dtrajs, dtram):
         List of directory names.
     dtrajs : list of np.ndarray
         List of discrete trajectories corresponding to trajectories held in dirs.
-    dtram : obj, pyemma.thermotools.dTRAM
+    tram : obj, pyemma.thermotools.dTRAM
         A dTRAM estimator object from the pyemma software package.
 
     """
     # save information needed to rebuild the MSM's created by dTRAM.
-    if not os.path.exists("dtram"):
-        os.mkdir("dtram")
-    os.chdir("dtram")
+    if not os.path.exists("tram"):
+        os.mkdir("tram")
+    os.chdir("tram")
 
     dtraj_info = { dirs[x]:dtrajs[x] for x in range(len(dirs)) }
     dtraj_info["dirs"] = dirs
@@ -174,22 +174,22 @@ def save_multi_temperature_dtram(dirs, dtrajs, dtram):
         pickle.dump(dtraj_info, fhandle)
 
     tram_info = {}
-    tram_info["temperatures"] = dtram.temperatures/KB
-    tram_info["tram_f"] = dtram.f
-    tram_info["tram_f_therm"] = dtram.f_therm
+    tram_info["temperatures"] = tram.temperatures/KB
+    tram_info["tram_f"] = tram.f
+    tram_info["tram_f_therm"] = tram.f_therm
 
-    for k in range(dtram.nthermo):
-        temperature = dtram.temperatures[k]/KB
-        tram_info["{:.2f}_active_set".format(temperature)] = dtram.model_active_set[k]
-        tram_info["{:.2f}_stationary_distribution".format(temperature)] = dtram.models[k].stationary_distribution
-        tram_info["{:.2f}_transition_matrix".format(temperature)] = dtram.models[k].transition_matrix
+    for k in range(tram.nthermo):
+        temperature = tram.temperatures[k]/KB
+        tram_info["{:.2f}_active_set".format(temperature)] = tram.model_active_set[k]
+        tram_info["{:.2f}_stationary_distribution".format(temperature)] = tram.models[k].stationary_distribution
+        tram_info["{:.2f}_transition_matrix".format(temperature)] = tram.models[k].transition_matrix
 
-    with open("dtram.pkl", "wb") as fhandle:
+    with open("tram.pkl", "wb") as fhandle:
         pickle.dump(tram_info, fhandle)
 
     os.chdir("..")
 
-def load_multi_temperature_dtram():
+def load_multi_temperature_tram():
     """Loads a MEMM
 
     Returns
@@ -198,28 +198,28 @@ def load_multi_temperature_dtram():
         List of directory names.
     dtrajs : list of np.ndarray
         List of discrete trajectories corresponding to trajectories held in dirs.
-    dtram : obj, pyemma.thermotools.dTRAM
+    tram : obj, pyemma.thermotools.dTRAM
         A dTRAM estimator object from the pyemma software package.
 
     """
-    os.chdir("dtram")
+    os.chdir("tram")
     with open("dtrajs.pkl", "rb") as fhandle:
         dtraj_pkl = pickle.load(fhandle)
         dirs = dtraj_pkl["dirs"]
         dtrajs = [ dtraj_pkl[x] for x in dirs ]
 
-    dtram = DummyTram()
-    with open("dtram.pkl", "rb") as fhandle:
-        dtram_pkl = pickle.load(fhandle)
-        dtram.temperatures = dtram_pkl["temperatures"]*KB
-        dtram.f = dtram_pkl["tram_f"]
-        dtram.f_therm = dtram_pkl["tram_f_therm"]
-        dtram.ntherm = len(dtram.temperatures)
+    tram = DummyTram()
+    with open("tram.pkl", "rb") as fhandle:
+        tram_pkl = pickle.load(fhandle)
+        tram.temperatures = tram_pkl["temperatures"]*KB
+        tram.f = tram_pkl["tram_f"]
+        tram.f_therm = tram_pkl["tram_f_therm"]
+        tram.ntherm = len(tram.temperatures)
 
-        dtram.model_active_set = [ dtram_pkl["{:.2f}_active_set".format(x)] for x in dtram.temperatures/KB ]
-        model_pi = [ dtram_pkl["{:.2f}_stationary_distribution".format(x)] for x in dtram.temperatures/KB ]
-        model_T = [ dtram_pkl["{:.2f}_transition_matrix".format(x)] for x in dtram.temperatures/KB ]
-        dtram.models = [ msm.MSM(model_T[x], pi=model_pi[x]) for x in range(dtram.ntherm) ]
+        tram.model_active_set = [ tram_pkl["{:.2f}_active_set".format(x)] for x in tram.temperatures/KB ]
+        model_pi = [ tram_pkl["{:.2f}_stationary_distribution".format(x)] for x in tram.temperatures/KB ]
+        model_T = [ tram_pkl["{:.2f}_transition_matrix".format(x)] for x in tram.temperatures/KB ]
+        tram.models = [ msm.MSM(model_T[x], pi=model_pi[x]) for x in range(tram.ntherm) ]
 
     os.chdir("..")
-    return dirs, dtrajs, dtram
+    return dirs, dtrajs, tram
