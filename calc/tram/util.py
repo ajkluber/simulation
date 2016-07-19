@@ -15,10 +15,14 @@ class DummyTram(object):
     def __init__(self):
         pass
 
-def get_organized_temps(tempfile):
+def get_organized_temps(tempfile=None, temperature_dirs=None):
     """Get directory names by temperature"""
-    with open(tempfile, "r") as fin:
-        temperature_dirs = fin.read().split()
+    if not tempfile is None:
+        with open(tempfile, "r") as fin:
+            temperature_dirs = fin.read().split()
+    else:
+        if temperature_dirs is None:
+            raise IOError("need to input tempfile or temperature_dirs")
 
     organized_temps = {}
     for i in range(len(temperature_dirs)):
