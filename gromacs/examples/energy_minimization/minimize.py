@@ -1,7 +1,5 @@
 import os
-import time
 import argparse
-import logging
 import numpy as np
 import subprocess as sb
 
@@ -10,8 +8,6 @@ from mpi4py import MPI
 import mdtraj 
 
 import simulation.mdp
-import simulation.slurm
-
 import model_builder as mdb
 
 def minimization_script(path_to_tables):
@@ -168,7 +164,7 @@ if __name__ == "__main__":
 
     if rank == 0:
         rank_i = 0
-        for chunk in mdtraj.iterload("../traj.xtc", top=topfile, chunk=chunksize):
+        for chunk in mdtraj.iterload("../" + trajfile, top="../" + topfile, chunk=chunksize):
             sub_chunk = chunk.slice(np.arange(0, chunk.n_frames, stride))
 
             if (rank_i == 0) and (rank == 0):
