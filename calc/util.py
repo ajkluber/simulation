@@ -19,6 +19,26 @@ class ContactArgs(object):
 ######################################################################
 # Utility functions
 ######################################################################
+def get_organized_temps(tempfile=None, temperature_dirs=None):
+    """Get directory names by temperature"""
+    if not tempfile is None:
+        with open(tempfile, "r") as fin:
+            temperature_dirs = fin.read().split()
+    else:
+        if temperature_dirs is None:
+            raise IOError("need to input tempfile or temperature_dirs")
+
+    organized_temps = {}
+    for i in range(len(temperature_dirs)):
+        temp_dir = temperature_dirs[i]
+        temp_T = float((temp_dir.split("/")[0]).split("_")[1])
+        if not temp_T in organized_temps.keys():
+            organized_temps[temp_T] = [temp_dir]
+        else:
+            organized_temps[temp_T].append(temp_dir)
+
+    return organized_temps
+
 def check_if_supported(function_type):
     if function_type not in supported_functions.keys():
         raise IOError("--function_type must be in " + supported_functions.__str__())

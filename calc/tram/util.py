@@ -7,6 +7,8 @@ import pyemma.thermo as thermo
 import pyemma.coordinates as coor
 import pyemma.msm as msm
 import pyemma.plots as mplt
+from pyemma.coordinates.data.featurization.misc import CustomFeature
+
 
 global KB
 KB = 0.0083145
@@ -15,10 +17,60 @@ class DummyTram(object):
     def __init__(self):
         pass
 
-def get_organized_temps(tempfile):
+class SbmEnergyFeature(CustomFeature):
+    """Create a feature for Time Independent Component Analysis
+
+    Description
+    -----------
+    Playing around with the idea that the terms of the potential energy are
+    good to cluster configurations. Turns out they are not great because they
+    map configurations on top of one another.
+
+    Examples
+    --------
+    >>> import model_builder as mdb
+    >>> model = mdb.inputs.load_model(name + ".ini")[0]
+    >>> EnergyFeature = SbmEnergyFeature(model, n_native=n_native_pairs)
+
+    """
+
+    def __init__(self, model, n_native=None):
+
+        if not (n_native is None):
+            self.Vdih = [ x.V for x in model.Hamiltonian._dihedrals ]
+            self.Vpair = [ x.V for x in model.Hamiltonian._pairs ]
+            self.dihedrals = model.Hamiltonian._dihedral_idxs
+            self.pairs = model.Hamiltonian._pair_idxs
+        else:
+            self.Vdih = [ x.V for x in model.Hamiltonian._dihedrals ]
+            self.Vpair = [ x.V for x in model.Hamiltonian._pairs[:n_native] ]
+            self.dihedrals = model.Hamiltonian._dihedral_idxs
+            self.pairs = model.Hamiltonian._pair_idxs[:n_native,:]
+        self.dimension = len(self.dihedrals) + len(self.pairs)
+
+    def dimension(self):
+        return self.dimension
+
+    def transform(self, traj):
+
+        # compute dihedral energy
+        phi = md.compute_dihedrals(traj, self.dihedrals)
+        Edih = np.array(map(lambda x,y: x(y), self.Vdih, phi.T)).T
+
+        # compute pair energy
+        r = md.compute_distances(traj, self.pairs)
+        Epair = np.array(map(lambda x,y: x(y), self.Vpair, r.T)).T
+
+        return np.hstack((Edih, Epair))
+
+def get_organized_temps(tempfile=None, temperature_dirs=None):
     """Get directory names by temperature"""
-    with open(tempfile, "r") as fin:
-        temperature_dirs = fin.read().split()
+    if not tempfile is None:
+        with open(tempfile, "r") as fin:
+            temperature_dirs = fin.read().split()
+    else:
+        if temperature_dirs is None:
+            raise IOError("need to input tempfile or temperature_dirs")
 
     organized_temps = {}
     for i in range(len(temperature_dirs)):
@@ -64,6 +116,11 @@ def get_awsem_phi_psi_idxs(top):
 # Functions to help build Multi-Ensemble Markov Models (MEMM)
 ######################################################################
 
+def tanh_contact(traj, pairs, r0, widths):
+    r = md.compute_distances(traj, pairs)
+    return 0.5*(np.tanh((r0 - r)/widths) + 1)
+
+
 def default_ca_sbm_features(feat, topfile, pairsfile=None):
     """Default features for a C-alpha structure-based model (SBM) are dihedral angles and """
     ref = md.load(topfile)
@@ -80,6 +137,28 @@ def default_ca_sbm_features(feat, topfile, pairsfile=None):
     feat.add_dihedrals(dihedral_idxs)
 
     return feat
+
+def sbm_contact_features(feat, pairwise_file, n_native_pairs, skip_nn=10, native_only=False):
+    """Contact feature using tanh switching function"""
+
+    pair_idxs = np.loadtxt(pairwise_file, usecols=(0,1), dtype=int) - 1
+    r0 = np.loadtxt(pairwise_file, usecols=(5,), dtype=np.float32) + 0.1
+    widths = np.loadtxt(pairwise_file, usecols=(6,), dtype=np.float32)
+
+    if native_only:
+        pair_idxs = pair_idxs[:n_native_pairs,:]
+        r0 = r0[:n_native_pairs]
+        widths = widths[:n_native_pairs]
+    else:
+        pair_idxs = np.vstack((pair_idxs[:n_native_pairs,:], pair_idxs[n_native_pairs::skip_nn,:]))
+        r0 = np.concatenate((r0[:n_native_pairs], r0[n_native_pairs::skip_nn]))
+        widths = np.concatenate((widths[:n_native_pairs], widths[n_native_pairs::skip_nn]))
+
+    feat.add_custom_feature(CustomFeature(tanh_contact, pair_idxs, r0, widths, dim=len(pair_idxs)))
+
+    feature_info = {'pairs':pair_idxs, 'r0':r0, 'widths':widths, 'dim':len(pair_idxs)}
+
+    return feat, feature_info 
 
 
 def default_awsem_features(feat, pair_skip=5):
@@ -156,7 +235,7 @@ def save_multi_temperature_tram(dirs, dtrajs, tram):
     dtrajs : list of np.ndarray
         List of discrete trajectories corresponding to trajectories held in dirs.
     tram : obj, pyemma.thermotools.dTRAM
-        A dTRAM estimator object from the pyemma software package.
+        A TRAM estimator object from the pyemma software package.
 
     """
     # save information needed to rebuild the MSM's created by dTRAM.
@@ -184,6 +263,19 @@ def save_multi_temperature_tram(dirs, dtrajs, tram):
         pickle.dump(tram_info, fhandle)
 
     os.chdir("..")
+
+def save_markov_state_models(T, models):
+
+    msm_info = {}
+    msm_info["temperature"] = T
+    msm_info["lagtimes"] = [ x.lagtime for x in models ]
+
+    for i in range(len(models)):
+        lagtime = models[i].lagtime
+        msm_info[str(lagtime)] = models[i].transition_matrix
+
+    with open("msm.pkl", "wb") as fhandle:
+        pickle.dump(msm_info, fhandle)
 
 def load_multi_temperature_tram():
     """Loads a MEMM

@@ -8,7 +8,8 @@ import util
 global KB
 KB = 0.0083145
 
-def calculate_Cv(tempsfile, n_interpolate=5, display=False, engfile="Etot.dat", usecols=(1,)):
+def calculate_Cv(tempsfile, n_interpolate=5, n_extrapolate=0, display=False,
+        engfile="Etot.dat", usecols=(1,), long=False):
     """Calculate heat capacity curve as a function of temperature
     
     Parameters
@@ -23,16 +24,18 @@ def calculate_Cv(tempsfile, n_interpolate=5, display=False, engfile="Etot.dat", 
     display : bool
         If true: display the plot to the screen. Else just save.
     """
-    mbar, beta, E, u_kn, N_k = util.get_mbar_multi_temp(tempsfile, n_interpolate, engfile=engfile, usecols=usecols)
+    mbar, beta, E, u_kn, N_k = util.get_mbar_multi_temp(tempsfile,
+            n_interpolate, n_extrapolate=n_extrapolate,
+            engfile=engfile, usecols=usecols)
 
     print "calculating Cv"
     U, dU = mbar.computeExpectations(E, compute_uncertainty=False)
     U2, dU2 = mbar.computeExpectations(E**2, compute_uncertainty=False)
     Cv = KB*beta*beta*(U2 - U**2)
 
-    save_cv_and_plot(beta, Cv, display=display)
+    save_cv_and_plot(beta, Cv, display=display, long=long)
 
-def save_cv_and_plot(beta, Cv, display=False):
+def save_cv_and_plot(beta, Cv, display=False, long=False):
     """Save heat capacity calculation and plot
     
     Parameters
@@ -44,9 +47,14 @@ def save_cv_and_plot(beta, Cv, display=False):
     display : bool, opt.
         If true, display the plot to the screen.
     """
-    if not os.path.exists("mbar_Cv"):
-        os.mkdir("mbar_Cv")
-    os.chdir("mbar_Cv")
+    if long:
+        if not os.path.exists("long_mbar_Cv"):
+            os.mkdir("long_mbar_Cv")
+        os.chdir("long_mbar_Cv")
+    else:
+        if not os.path.exists("mbar_Cv"):
+            os.mkdir("mbar_Cv")
+        os.chdir("mbar_Cv")
 
     # save heat capacity curve and
     T = 1./(beta*KB)
@@ -80,7 +88,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("tempsfile")
     parser.add_argument("--n_interpolate", default=5, type=int)
+    parser.add_argument("--n_extrapolate", default=0, type=int)
     parser.add_argument("--display", action="store_true")
     args = parser.parse_args()
 
-    calculate_Cv(args.tempsfile, n_interpolate=args.n_interpolate, display=args.display)
+    calculate_Cv(args.tempsfile, n_interpolate=args.n_interpolate, n_extrapolate=args.n_extrapolate, display=args.display)
