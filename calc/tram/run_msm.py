@@ -9,6 +9,17 @@ import pyemma.msm as msm
 
 import util
 
+
+# Simple test for the custom feature
+#from pyemma.coordinates.data.featurization.misc import CustomFeature
+#def tanh_contact(traj, pairs, r0, widths):
+#    r = md.compute_distances(traj, pairs)
+#    return 0.5*(np.tanh((r0 - r)/widths) + 1)
+#pairs = np.array([[1,10], [1,20], [5, 40], [12, 15], [12, 40]]) - 1
+#r0 = np.ones(len(pairs), np.float32)*0.5
+#widths = np.ones(len(pairs), np.float32)*0.1
+#feat.add_custom_feature(CustomFeature(tanh_contact, pairs, r0, widths, dim=len(pairs)))
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("pairwise_file")
@@ -29,10 +40,10 @@ if __name__ == "__main__":
     trajname = args.trajname
     topname = args.topname
     stride = args.stride
-    n_clusters = args.n_clusters    
-    tica_dims = args.tica_dims    
+    n_clusters = args.n_clusters
+    tica_dims = args.tica_dims  
     recluster = args.recluster    
-    display = args.display    
+    display = args.display
 
     with open("Qtanh_0_05_profile/T_used.dat","r") as fin: 
         T = float(fin.read())
@@ -43,9 +54,9 @@ if __name__ == "__main__":
 
     trajfiles = [ x + "/" + trajname for x in tempdirs ]
 
-    # add features.
+    # add features
     feat = coor.featurizer(topfile)
-    feat = util.sbm_contact_features(feat, pairwise_file, n_native_pairs)
+    feat, feature_info = util.sbm_contact_features(feat, pairwise_file, n_native_pairs)
 
     if not os.path.exists("msm"):
         os.mkdir("msm")
@@ -53,7 +64,7 @@ if __name__ == "__main__":
     if (not os.path.exists("msm/dtrajs.pkl")) or recluster:
         # cluster if necessary
         inp = coor.source(trajfiles, feat)
-        tica_obj = coor.tica(inp, dim=tica_dims, lag=tica_lag, kinetic_map=True)
+        tica_obj = coor.tica(inp, dim=tica_dims, lag=tica_lag, stride=stride)
         Y = tica_obj.get_output()
         cl = coor.cluster_kmeans(data=Y, k=n_clusters)
         dtrajs = cl.dtrajs

@@ -154,11 +154,11 @@ def sbm_contact_features(feat, pairwise_file, n_native_pairs, skip_nn=10, native
         r0 = np.concatenate((r0[:n_native_pairs], r0[n_native_pairs::skip_nn]))
         widths = np.concatenate((widths[:n_native_pairs], widths[n_native_pairs::skip_nn]))
 
-    TanhFeature = CustomFeature(tanh_contact, pair_idxs, r0, widths, dim=len(pair_idxs))
+    feat.add_custom_feature(CustomFeature(tanh_contact, pair_idxs, r0, widths, dim=len(pair_idxs)))
 
-    feat.add_custom_feature(TanhFeature)
+    feature_info = {'pairs':pair_idxs, 'r0':r0, 'widths':widths, 'dim':len(pair_idxs)}
 
-    return feat
+    return feat, feature_info 
 
 
 def default_awsem_features(feat, pair_skip=5):
