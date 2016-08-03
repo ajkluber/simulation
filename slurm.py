@@ -22,6 +22,7 @@ def make_script_string(commands, jobname, gpus=False, partition="commons",
 
     slurm = "#!/bin/bash\n"
     slurm +="#SBATCH --job-name=%s\n" % jobname
+    slurm +="#SBATCH --account=commons\n"
     if gpus:
         slurm +="#SBATCH --gres=gpu:%d\n" % gpus
     else:
