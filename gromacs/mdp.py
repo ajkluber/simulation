@@ -42,7 +42,7 @@ def constant_energy(nsteps, nstout="1000", dt=0.0001):
     mdp_string += "comm_grps                = System \n"
     return mdp_string
 
-def constant_temperature(T,nsteps,nstout="1000"):
+def constant_temperature(T, nsteps, nstout="1000", tau_t=1.):
     """ Generate grompp.mdp file string. Gromacs 4.5 """
     mdp_string = "; Run control parameters \n"
     mdp_string += "integrator               = sd  \n"
@@ -73,7 +73,7 @@ def constant_temperature(T,nsteps,nstout="1000"):
     mdp_string += "Tcoupl                   = no \n"
     mdp_string += "ld_seed                  = -1 \n"
     mdp_string += "tc-grps                  = system \n"
-    mdp_string += "tau_t                    = 1 \n"
+    mdp_string += "tau_t                    = {} \n".format(tau_t)
     mdp_string += "ref_t                    = {} \n".format(T)
     mdp_string += "Pcoupl                   = no \n\n"
     mdp_string += "; generate velocities for startup run \n"
