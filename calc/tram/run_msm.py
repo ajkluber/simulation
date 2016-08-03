@@ -3,13 +3,6 @@ import pickle
 import argparse
 import numpy as np
 
-import mdtraj as md
-import pyemma.coordinates as coor
-import pyemma.msm as msm
-
-import util
-
-
 # Simple test for the custom feature
 #from pyemma.coordinates.data.featurization.misc import CustomFeature
 #def tanh_contact(traj, pairs, r0, widths):
@@ -44,6 +37,21 @@ if __name__ == "__main__":
     tica_dims = args.tica_dims  
     recluster = args.recluster    
     display = args.display
+
+    # for plotting on compute node
+    if display:
+        import pyemma.plots as mplt
+    else:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import pyemma.plots as mplt
+
+    import mdtraj as md
+    import pyemma.coordinates as coor
+    import pyemma.msm as msm
+
+    import util
 
     with open("Qtanh_0_05_profile/T_used.dat","r") as fin: 
         T = float(fin.read())
@@ -87,14 +95,6 @@ if __name__ == "__main__":
     its = msm.its(dtrajs, lags=lags)
     util.save_markov_state_models(T, its.models)
 
-    # save MSM's 
-    if display:
-        import pyemma.plots as mplt
-    else:
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-        import pyemma.plots as mplt
 
     mplt.plot_implied_timescales(its, ylog=False)
     plt.title("T = " + str(T))
