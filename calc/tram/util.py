@@ -277,6 +277,27 @@ def save_markov_state_models(T, models):
     with open("msm.pkl", "wb") as fhandle:
         pickle.dump(msm_info, fhandle)
 
+def load_markov_state_models():
+
+    os.chdir("msm")
+    with open("dtrajs.pkl", "rb") as fhandle:
+        dtrajs_info = pickle.load(fhandle)
+
+    dirs = dtrajs_info["dirs"]
+    dtrajs = [ dtrajs_info[x] for x in dirs ]
+
+    with open("msm.pkl", "wb") as fhandle:
+        pickle.dump(msm_info, fhandle)
+    lagtimes = msm_info["lagtimes"]
+
+    models = []
+    for i in range(len(lagtimes)):
+        models.append(msm.markov_model(msm_info[str(lagtimes[i])]))
+
+    os.chdir("..")
+
+    return dirs, dtrajs, lagtimes, models
+
 def load_multi_temperature_tram():
     """Loads a MEMM
 
@@ -311,3 +332,6 @@ def load_multi_temperature_tram():
 
     os.chdir("..")
     return dirs, dtrajs, tram
+
+def calculate_observable_distribution():
+    pass
