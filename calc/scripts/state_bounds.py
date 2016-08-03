@@ -8,7 +8,10 @@ if __name__ == "__main__":
     coordfile = "Qtanh_0_05.dat"
     Tdirs = [ x.rstrip("\n") for x in open("ticatemps","r").readlines() ]
 
-    T = Tdirs[0].split("_")[0]
+
+    tempdirs = glob.glob("T_*_1") + glob.glob("T_*_2") + glob.glob("T_*_3")
+
+    T = Tdirs[0].split("_")[-2]
     coordname = coordfile.split(".")[0]
 
     coordvst = np.concatenate([np.loadtxt("%s/%s" % (x,coordfile)) for x in Tdirs ])
