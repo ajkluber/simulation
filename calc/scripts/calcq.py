@@ -37,7 +37,11 @@ if __name__ == "__main__":
         trajfiles.append([ x + "/" + trajname for x in organized_temps[T[i]] ])
 
     # parameterize native contacts function
-    pairs = np.loadtxt(name + ".contacts", dtype=int) - 1
+    if os.path.exists(name + ".contacts"):
+        pairs = np.loadtxt(name + ".contacts", dtype=int) - 1
+    elif os.path.exists("../../" + name + ".contacts"):
+        pairs = np.loadtxt("../../" + name + ".contacts", dtype=int) - 1
+
     if pairs.shape[1] == 4:
         pairs = pairs[:,(1,3)]
     n_native_pairs = len(pairs)
