@@ -138,7 +138,7 @@ def default_ca_sbm_features(feat, topfile, pairsfile=None):
 
     return feat
 
-def sbm_contact_features(feat, pairwise_file, n_native_pairs, skip_nn=10, native_only=False):
+def sbm_contact_features(feat, pairwise_file, n_native_pairs, skip_nn=10, native_only=False, nonnative_only=False):
     """Contact feature using tanh switching function"""
 
     pair_idxs = np.loadtxt(pairwise_file, usecols=(0,1), dtype=int) - 1
@@ -150,9 +150,14 @@ def sbm_contact_features(feat, pairwise_file, n_native_pairs, skip_nn=10, native
         r0 = r0[:n_native_pairs]
         widths = widths[:n_native_pairs]
     else:
-        pair_idxs = np.vstack((pair_idxs[:n_native_pairs,:], pair_idxs[n_native_pairs::skip_nn,:]))
-        r0 = np.concatenate((r0[:n_native_pairs], r0[n_native_pairs::skip_nn]))
-        widths = np.concatenate((widths[:n_native_pairs], widths[n_native_pairs::skip_nn]))
+        if nonnative_only:
+            pair_idxs = pair_idxs[n_native_pairs::skip_nn,:]
+            r0 = r0[n_native_pairs::skip_nn]
+            widths = widths[n_native_pairs::skip_nn]
+        else:
+            pair_idxs = np.vstack((pair_idxs[:n_native_pairs,:], pair_idxs[n_native_pairs::skip_nn,:]))
+            r0 = np.concatenate((r0[:n_native_pairs], r0[n_native_pairs::skip_nn]))
+            widths = np.concatenate((widths[:n_native_pairs], widths[n_native_pairs::skip_nn]))
 
     feat.add_custom_feature(CustomFeature(tanh_contact, pair_idxs, r0, widths, dim=len(pair_idxs)))
 
@@ -286,8 +291,8 @@ def load_markov_state_models():
     dirs = dtrajs_info["dirs"]
     dtrajs = [ dtrajs_info[x] for x in dirs ]
 
-    with open("msm.pkl", "wb") as fhandle:
-        pickle.dump(msm_info, fhandle)
+    with open("msm.pkl", "rb") as fhandle:
+        msm_info = pickle.load(fhandle)
     lagtimes = msm_info["lagtimes"]
 
     models = []
@@ -333,5 +338,20 @@ def load_multi_temperature_tram():
     os.chdir("..")
     return dirs, dtrajs, tram
 
-def calculate_observable_distribution():
-    pass
+def sort_observable_into_clusters(clust_idxs, obs_trajs, dtrajs):
+    clust_obs = [ None for x in range(len(clust_idxs)) ]
+
+    # get data from all directories at this thermo state.
+    for n in range(len(obs_trajs)):
+        q = obs_trajs[n]
+        dtraj = dtrajs[n]
+        for i in range(len(clust_idxs)):
+            # collect the frames that are in each cluster
+            obs_in_clust = (dtraj == clust_idxs[i])
+            if np.any(obs_in_clust):
+                if clust_obs[i] is None:
+                    clust_obs[i] = q[obs_in_clust]
+                else:
+                    clust_obs[i] = np.concatenate((clust_obs[i], q[obs_in_clust]))
+
+    return clust_obs
