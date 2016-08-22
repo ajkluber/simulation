@@ -25,6 +25,7 @@ if __name__ == "__main__":
     parser.add_argument("--tica_dims", default=10, type=int)
     parser.add_argument("--recluster", action="store_true")
     parser.add_argument("--display", action="store_true")
+    parser.add_argument("--dontsavemsm", action="store_true")
     args = parser.parse_args()
 
     pairwise_file = args.pairwise_file
@@ -37,6 +38,7 @@ if __name__ == "__main__":
     tica_dims = args.tica_dims  
     recluster = args.recluster    
     display = args.display
+    dontsavemsm = args.dontsavemsm
 
     # for plotting on compute node
     if display:
@@ -79,10 +81,12 @@ if __name__ == "__main__":
 
         os.chdir("msm")
         dirs = [ os.path.basename(os.path.dirname(x)) for x in trajfiles ]
-        dtraj_info = { dirs[x]:dtrajs[x] for x in range(len(dirs)) }
-        dtraj_info["dirs"] = dirs
-        with open("dtrajs.pkl", 'wb') as fhandle:
-            pickle.dump(dtraj_info, fhandle)
+
+        if not dontsavemsm:
+            dtraj_info = { dirs[x]:dtrajs[x] for x in range(len(dirs)) }
+            dtraj_info["dirs"] = dirs
+            with open("dtrajs.pkl", 'wb') as fhandle:
+                pickle.dump(dtraj_info, fhandle)
     else:
         os.chdir("msm")
         with open("dtrajs.pkl", 'rb') as fhandle:
@@ -93,7 +97,9 @@ if __name__ == "__main__":
     # estimate MSM's at different lagtimes
     lags = [1,2,5,10,20,50,100,200,300,400,500,600,700,800,900,1000]
     its = msm.its(dtrajs, lags=lags)
-    util.save_markov_state_models(T, its.models)
+
+    if not dontsavemsm:
+        util.save_markov_state_models(T, its.models)
 
 
     mplt.plot_implied_timescales(its, ylog=False)
