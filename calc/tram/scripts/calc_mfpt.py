@@ -7,17 +7,20 @@ import simulation.calc.tram.util as util
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("coordfile")
-    parser.add_argument("lagtime", type=int)
+    parser.add_argument("lagtime", type=float)
+    parser.add_argument("--threshold", type=float, default=0.9)
 
     #lagtime = 200
     #coordfile = "Qtanh_0_05.npy"
 
     args = parser.parse_args()
-    lagtime = args.lagtime
     coordfile = args.coordfile
+    lagtime = args.lagtime
+    threshold = args.threshold
 
     coordname = coordfile.split(".")[0]
 
+    print "loading MSMs..."
     dirs, dtrajs, lagtimes, models = util.load_markov_state_models()
 
     obs_trajs = [ np.load(x + "/" + coordfile) for x in dirs ]
@@ -25,12 +28,12 @@ if __name__ == "__main__":
     model_msm = models[7]
     clust_idxs = np.arange(model_msm.nstates)
 
+    print "calculating q on clusters..."
     clust_obs = util.sort_observable_into_clusters(clust_idxs, obs_trajs, dtrajs) 
-
     obs_avg_clust = np.array([ np.mean(x) for x in clust_obs ])
 
     # calculate mean first-passage time between minima according to the free
-    # energy profile along Q.
+    # energy profile along Q. This is a crude (heuristic) way to define sets.
     A, B = np.loadtxt(coordname + "_profile/minima.dat")
 
     left_min = np.argwhere((obs_avg_clust > A*0.95) & (obs_avg_clust < A*1.05))[:,0]
@@ -47,10 +50,15 @@ if __name__ == "__main__":
 
     # can compare with the time to go between metastable states
     model_msm.pcca(2)
-    left_well = model_msm.metastable_sets[0]
-    right_well = model_msm.metastable_sets[1]
+    left_well = np.argwhere(model_msm.metastable_memberships[:,0] > threshold)[:,0]
+    right_well = np.argwhere(model_msm.metastable_memberships[:,1] > threshold)[:,0]
+
+    #left_well = model_msm.metastable_sets[0]
+    #right_well = model_msm.metastable_sets[1]
     mfpt_pcca1 = lagtime*model_msm.mfpt(left_well, right_well)
     mfpt_pcca2 = lagtime*model_msm.mfpt(right_well, left_well)
+
+    #ReactiveFlux = msm.tpt(model_msm, left_well, right_well)
 
     q_avg_meta1 = np.dot(model_msm.stationary_distribution[left_well], obs_avg_clust[left_well])
     q_avg_meta2 = np.dot(model_msm.stationary_distribution[right_well], obs_avg_clust[right_well])

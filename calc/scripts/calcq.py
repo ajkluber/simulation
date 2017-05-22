@@ -12,6 +12,17 @@ import simulation.calc.observables as observables
 import simulation.calc.pmfutil as pmfutil
 import simulation.calc.util as util
 
+def get_n_native_pairs(name):
+    if os.path.exists(name + ".contacts"):
+        n_native_pairs = len(np.loadtxt(name + ".contacts"))
+    elif os.path.exists(name + ".ini"):
+        with open(name + ".ini", "r") as fin:
+            n_native_pairs = int([ x for x in fin.readlines() if x.startswith("n_native_pairs") ][0].split()[-1])
+    else:
+        return False
+    return n_native_pairs
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("name")
@@ -26,7 +37,8 @@ if __name__ == "__main__":
     recalculate = True
 
     # get directories
-    tempdirs = glob.glob("T_*_1") + glob.glob("T_*_2") + glob.glob("T_*_3")
+    tempdirs = glob.glob("T_*_1/traj.xtc") + glob.glob("T_*_2/traj.xtc") + glob.glob("T_*_3/traj.xtc")
+    tempdirs = [ x.split("/traj.xtc")[0] for x in tempdirs ]
     organized_temps = util.get_organized_temps(temperature_dirs=tempdirs)
     T = organized_temps.keys()
     T.sort()
@@ -36,11 +48,16 @@ if __name__ == "__main__":
     for i in range(len(T)):
         trajfiles.append([ x + "/" + trajname for x in organized_temps[T[i]] ])
 
+    n_native_pairs = get_n_native_pairs(name)
     # parameterize native contacts function
     if os.path.exists(name + ".contacts"):
         pairs = np.loadtxt(name + ".contacts", dtype=int) - 1
     elif os.path.exists("../../" + name + ".contacts"):
         pairs = np.loadtxt("../../" + name + ".contacts", dtype=int) - 1
+    elif os.path.exists(name + "_pairwise_params"):
+        pairs = np.loadtxt(name + "_pairwise_params", usecols=(0,1), dtype=int)[:n_native_pairs] - 1
+    else:
+        raise IOError("contacts file does not exists")
 
     if pairs.shape[1] == 4:
         pairs = pairs[:,(1,3)]

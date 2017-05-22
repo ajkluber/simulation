@@ -355,3 +355,4 @@ def sort_observable_into_clusters(clust_idxs, obs_trajs, dtrajs):
                     clust_obs[i] = np.concatenate((clust_obs[i], q[obs_in_clust]))
 
     return clust_obs
+

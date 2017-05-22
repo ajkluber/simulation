@@ -84,6 +84,7 @@ def save_cv_and_plot(beta, Cv, display=False, long=False):
     if display:
         plt.show()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("tempsfile")

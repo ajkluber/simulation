@@ -16,6 +16,9 @@ if __name__ == "__main__":
     trajname = args.trajname
     topname = args.topname
 
+    lag_idx = 7
+    n_sample = 100
+
     with open("Qtanh_0_05_profile/T_used.dat","r") as fin: 
         T = float(fin.read())
 
@@ -23,26 +26,34 @@ if __name__ == "__main__":
     topfile = tempdirs[0] + "/" + topname
     trajfiles = [ x + "/" + trajname for x in tempdirs ]
 
+    print "initializing featurizer"
     # initialize traj input info.
     feat = coor.featurizer(topfile)
     inp = coor.source(trajfiles, feat)
 
+    print "loading MSMs"
     # Load MSM's that have already been calculated.
     dirs, dtrajs, lagtimes, models = util.load_markov_state_models()
 
-    model_msm = models[7] # lagtime of 200
+    # lagtime of 200
+    tau = lagtimes[lag_idx]
+    model_msm = models[lag_idx] 
 
-    # Determine the number of clusters by the number of timescales.
-    n_pcca = 2
-    n_sample = 100
+    with open("msm/n_dominant_timescales.dat", "r") as fin:
+        n_pcca = int(fin.read()) + 1
 
+    print "grabbing frames"
     # Grab frames from pcca clustering
     model_msm.pcca(n_pcca)
     pcca_dist = model_msm.metastable_distributions
     active_state_indexes = dt.index_states(dtrajs)
     pcca_samples = dt.sample_indexes_by_distribution(active_state_indexes, pcca_dist, n_sample)
 
-    outfiles = [ 'msm/pcca{}.xtc'.format(x) for x in range(1, n_pcca + 1) ]
+    if not os.path.exists("msm/PCCA_N_" + str(n_pcca)):
+        os.mkdir("msm/PCCA_N_" + str(n_pcca))
+
+    outfiles = [ 'msm/PCCA_N_{}/pcca{}.xtc'.format(n_pcca, x) for x in range(1, n_pcca + 1) ]
                     
+    print "saving"
     coor.save_trajs(inp, pcca_samples, outfiles=outfiles)
 
