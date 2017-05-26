@@ -1,6 +1,6 @@
 
 def make_script_string(commands, jobname, gpus=False, partition="commons", 
-        walltime="23:55:00", email=False, emailtype="ae", nodes=1, 
+        walltime="23:55:00", email=False, emailtype="ALL", nodes=1, 
         ntasks_per_node=1, mem_per_cpu=False, exclusive=False,
         cd_slurm_dir=True):
     """Return slurm script string that can be written to file
