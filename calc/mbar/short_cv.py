@@ -2,10 +2,13 @@ import os
 import glob
 import numpy as np
 import subprocess as sb
+import matplotlib
+matplotlib.use("Agg")
 
 import heat_capacity_vs_T
 
 if __name__ == "__main__":
+
     if not os.path.exists("temp_dirs"):
         tdirs = glob.glob("T_*_0")                    
         tdirs.sort()

@@ -31,7 +31,7 @@ if __name__ == "__main__":
         qtanh = [ np.load(x + "/Qtanh_0_05.npy") for x in tempdirs ]
         rg = [ np.load(x + "/Rg.npy") for x in tempdirs ]
     else:
-        raise IOError("Rg.dat does not exist!")
+        raise IOError("Rg.dat, Rg.npy do not exist!")
         #qtanhsum_obs = observables.TanhContactSum(top, pairs, r0_cont, widths)
         #qtanh = observables.calculate_observable(trajfiles, qtanhsum_obs, saveas="Qtanh_0_05.dat")
 

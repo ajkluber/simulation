@@ -11,10 +11,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--trajname", default="traj.xtc", type=str)
     parser.add_argument("--topname", default="ref.pdb", type=str)
+    parser.add_argument("--n_pcca", default=0, type=int)
 
     args = parser.parse_args()
     trajname = args.trajname
     topname = args.topname
+    n_pcca = args.n_pcca
+
+    import time
+    starttime = time.time()
 
     lag_idx = 7
     n_sample = 100
@@ -39,9 +44,10 @@ if __name__ == "__main__":
     tau = lagtimes[lag_idx]
     model_msm = models[lag_idx] 
 
-    with open("msm/n_dominant_timescales.dat", "r") as fin:
-        n_pcca = int(fin.read()) + 1
-
+    if n_pcca == 0:
+        with open("msm/n_dominant_timescales.dat", "r") as fin:
+            n_pcca = int(fin.read()) + 1
+        
     print "grabbing frames"
     # Grab frames from pcca clustering
     model_msm.pcca(n_pcca)
@@ -57,3 +63,5 @@ if __name__ == "__main__":
     print "saving"
     coor.save_trajs(inp, pcca_samples, outfiles=outfiles)
 
+    endtime = time.time()
+    print "took: {:.4f} min".format((endtime - starttime)/60.)
