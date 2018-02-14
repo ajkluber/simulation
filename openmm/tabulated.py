@@ -42,7 +42,7 @@ def LJ_table(eps, sigma, rmin, rmax, r_switch, r_cut, n_points=1000, switch=Fals
         y = apply_switch(y, r, r_switch, r_cut)
     return create_table_string(y/unit.kilojoule_per_mole)
 
-def Chaimovich_table(eps_ww, sigma_ww, B, r0, Delta, rmin, rmax, n_points=1000, switch=False):
+def Chaimovich_table(eps_ww, sigma_ww, B, r0, Delta, rmin, rmax, r_switch, r_cut, n_points=1000, switch=False):
     """Isotropic 'core-softened' potential"""
     r = unit.Quantity(np.linspace(rmin/unit.nanometer, rmax/unit.nanometer, n_points), unit.nanometer)
 

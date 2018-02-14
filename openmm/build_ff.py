@@ -26,18 +26,6 @@ def add_element_traits(elem, traits):
     for key, value in traits.items():
         elem.set(key, value)
 
-def toy_polymer_CS_water(n_beads, eps_slv, sigma_slv, mass_slv, eps_ply, sigma_ply, 
-        mass_ply, bonded_params, cutoff, saveas="ff_cgs.xml"):
-
-def CS_water_params():
-    eps_ww = 20.38*unit.kilojoule_per_mole
-    sigma_ww = 0.2429*unit.nanometer
-    B = 23.35*unit.kilojoule_per_mole
-    r0 = 0.2465 *unit.nanometer
-    Delta = 0.1090*unit.nanometer
-    return eps_ww, sigma_ww, B, r0, Delta
-
-
 def toy_polymer_params():
     # parameters for coarse-grain polymer are taken from:
     # Anthawale 2007
@@ -51,6 +39,15 @@ def toy_polymer_params():
     bonded_params = [r0, kb, theta0, ka]
 
     return sigma_ply, eps_ply, mass_ply, bonded_params
+
+def CS_water_params():
+    eps_ww = 20.38*unit.kilojoule_per_mole
+    sigma_ww = 0.2429*unit.nanometer
+    B = 23.35*unit.kilojoule_per_mole
+    r0 = 0.2465*unit.nanometer
+    Delta = 0.1090*unit.nanometer
+    mass_slv = 18.*unit.amu
+    return eps_ww, sigma_ww, B, r0, Delta, mass_slv
 
 def LJ_water_params():
     # LJ solvent parameters.
@@ -101,14 +98,16 @@ def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml"):
     ----------
     n_beads : int
         Number of monomers.
-    eps_slv : float
+    cutoff : float
+        Cutoff radius for long range interactions.
     
     """
-    rmin = 0.6*sigma_slv
-    rmax = 1.5*cutoff
 
     sigma_slv, eps_slv, mass_slv = LJ_water_params()
     sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
+
+    rmin = 0.6*sigma_slv
+    rmax = 1.5*cutoff
 
     #app.element.solvent = app.element.Element(201, "Solvent", "Sv", mass_slv)
     #app.element.polymer = app.element.Element(200, "Polymer", "Pl", mass_ply)
@@ -163,20 +162,21 @@ def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml"):
     with open(saveas, "w") as fout:
         fout.write(ET.tostring(ff))
 
-def toy_polymer_CS_water(n_beads, eps_slv, sigma_slv, mass_slv, cutoff, saveas="ff_cgs.xml"):
+def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml"):
     """Build xml forcefield file for toy polymer
     
     Parameters
     ----------
     n_beads : int
         Number of monomers.
-    eps_slv : float
     
     """
-    rmin = 0.6*sigma_slv
-    rmax = 1.5*cutoff
 
+    eps_ww, sigma_ww, B, r0, Delta, mass_slv = CS_water_params()
     sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
+
+    rmin = 0.6*sigma_ww
+    rmax = 1.5*cutoff
 
     # forcefield xml tags
     ff = ET.Element("ForceField")
@@ -185,22 +185,22 @@ def toy_polymer_CS_water(n_beads, eps_slv, sigma_slv, mass_slv, cutoff, saveas="
 
     # solvent parameters
     add_element_traits(ET.SubElement(atm_types, "Type"),
-        {"name":"Solv", "class": "LJ", "element":"Sv", "mass":str(mass_slv/unit.amu)})
+        {"name":"Solv", "class": "CS", "element":"Sv", "mass":str(mass_slv/unit.amu)})
     add_element_traits(ET.SubElement(ET.SubElement(res_types, "Residue",
-        attrib={"name":"SLV"}), "Atom"), {"name":"LJ", "type":"Solv"})
+        attrib={"name":"SLV"}), "Atom"), {"name":"CS", "type":"Solv"})
 
     # add custom nonbonded interactions that are:
-    #  1) Lennard-Jones (LJ) attractive between solvent atoms
+    #  1) Core-softened (CS) potential between solvent atoms
     #  2) Weeks-Chandler-Andersen (WCA) repulsive for monomer-monomer and
     #  monomer-solvent
     cust_nb_f = ET.SubElement(ff, "CustomNonbondedForce",
             {"energy":"areslv*CS(r) + (1 - areslv)*WCA(r); areslv=step((flavor1 + flavor2) - 1.5)", 
                 "bondCutoff":"3"})
 
-    # each particle class (solvent=LJ, polymer=PL) has a 'flavor'. Flavors
+    # each particle class (solvent=CS, polymer=PL) has a 'flavor'. Flavors
     # determine the interaction
     add_element_traits(ET.SubElement(cust_nb_f, "PerParticleParameter"), {"name":"flavor"})
-    add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"LJ", "flavor":"1"})
+    add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"CS", "flavor":"1"})
     add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"PL", "flavor":"0"})
 
     # tabulated WCA potential
@@ -218,7 +218,7 @@ def toy_polymer_CS_water(n_beads, eps_slv, sigma_slv, mass_slv, cutoff, saveas="
 
     r_switch = cutoff - 0.11*unit.nanometer
     r_cut = cutoff - 0.01*unit.nanometer
-    cs_tab = tabulated.Chaimovich_table(eps_ww, sigma_ww, B, r0, Delta, rmin, rmax, switch=True)
+    cs_tab = tabulated.Chaimovich_table(eps_ww, sigma_ww, B, r0, Delta, rmin, rmax, r_switch, r_cut, switch=True)
     cs_f.text = cs_tab
 
     # add polymer only items

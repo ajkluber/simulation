@@ -2,14 +2,35 @@ import simtk.unit as unit
 import simtk.openmm as omm
 import simtk.openmm.app as app
 
-def production_run(topology, positions, system, integrator, n_steps,
-        nsteps_out, min_name, traj_name, lastframe_name, log_name):
-    """Run trajectory"""
+def production(topology, positions, ensemble, temperature, timestep,
+        collision_rate, pressure, n_steps, nsteps_out, ff_filename,
+        firstframe_name, log_name, traj_name, lastframe_name, cutoff,
+        templates, nonbondedMethod=app.CutoffPeriodic, minimize=False): 
+
+    # load forcefield from xml file
+    forcefield = app.ForceField(ff_filename)
+
+    system = forcefield.createSystem(topology,
+            nonbondedMethod=nonbondedMethod, nonbondedCutoff=cutoff,
+            ignoreExternalBonds=True, residueTemplates=templates)
+            
+    if ensemble == "NVE": 
+        integrator = omm.VerletIntegrator(timestep)
+    else:
+        integrator = omm.LangevinIntegrator(temperature, collision_rate, timestep)
+        if ensemble == "NPT":
+            system.addForce(omm.MonteCarloBarostat(pressure, temperature))
+    
+
+    # Run simulation
     simulation = app.Simulation(topology, system, integrator)
     simulation.context.setPositions(positions)
-    simulation.minimizeEnergy()
 
-    simulation.reporters.append(app.PDBReporter(min_name, 1))
+    if minimize:
+        simulation.minimizeEnergy()
+
+    # save the first frame minimized
+    simulation.reporters.append(app.PDBReporter(firstframe_name, 1))
     simulation.step(1)
     simulation.reporters.pop(0)
 
@@ -21,3 +42,4 @@ def production_run(topology, positions, system, integrator, n_steps,
 
     simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
     simulation.step(1)
+
