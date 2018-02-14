@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     # determine which temperature is closest to the folding temperature
     os.chdir(coordname + "_profile")
-    if not (os.path.exists("T_used") and os.path.exists("minima.dat")):
+    if not (os.path.exists("T_used.dat") and os.path.exists("minima.dat")):
         dF_min_idx = np.argmin([ (float(open("T_{}_stab.dat".format(x)).read()))**2 for x in T ])
         T_used = T[dF_min_idx] 
         mid_bin = np.loadtxt("T_{}_mid_bin.dat".format(T_used))
@@ -32,7 +32,7 @@ if __name__ == "__main__":
         U = xinterp[minidx].min()
         N = xinterp[minidx].max()
     else:
-        with open("T_used", "r") as fin:
+        with open("T_used.dat", "r") as fin:
             T_used = float(fin.read())
         minima = np.loadtxt("minima.dat")
         U = minima.min()

@@ -13,6 +13,9 @@ if __name__ == "__main__":
     #lagtime = 200
     #coordfile = "Qtanh_0_05.npy"
 
+    import time
+    starttime = time.time()
+
     args = parser.parse_args()
     coordfile = args.coordfile
     lagtime = args.lagtime
@@ -74,3 +77,5 @@ if __name__ == "__main__":
         with open("msm/tunfold_pcca.dat", "w") as fout:
             fout.write(str(mfpt_pcca1))
 
+    endtime = time.time()
+    print "took: {:.4f} min".format((endtime - starttime)/60.)

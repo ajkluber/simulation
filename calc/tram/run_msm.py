@@ -49,7 +49,6 @@ if __name__ == "__main__":
         import matplotlib.pyplot as plt
         import pyemma.plots as mplt
 
-    import mdtraj as md
     import pyemma.coordinates as coor
     import pyemma.msm as msm
 
@@ -73,11 +72,11 @@ if __name__ == "__main__":
 
     if (not os.path.exists("msm/dtrajs.pkl")) or recluster:
         # cluster if necessary
-        inp = coor.source(trajfiles, feat)
-        tica_obj = coor.tica(inp, dim=tica_dims, lag=tica_lag, stride=stride)
-        Y = tica_obj.get_output()
-        cl = coor.cluster_kmeans(data=Y, k=n_clusters)
-        dtrajs = cl.dtrajs
+        reader = coor.source(trajfiles, feat)
+        transform = coor.tica(dim=tica_dims, lag=tica_lag, stride=stride)
+        cluster = coor.cluster_kmeans(k=n_clusters)
+        pipeline = coor.pipeline([reader, transform, cluster])
+        dtrajs = cluster.dtrajs
 
         os.chdir("msm")
         dirs = [ os.path.basename(os.path.dirname(x)) for x in trajfiles ]
