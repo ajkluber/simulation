@@ -46,6 +46,7 @@ def make_script_string(commands, jobname, gpus=False, partition="commons",
         slurm += "#SBATCH --dependency={}:{}\n".format(dependency_type, dependency_ID)
     if cd_slurm_dir:
         slurm +="cd $SLURM_SUBMIT_DIR\n"
+    slurm += 'pwd\n'
     slurm += 'echo "JobID: $SLURM_JOB_ID"\n'
     slurm += 'echo "Running on: $SLURM_JOB_NODELIST"\n\n'
     slurm += "{}\n".format(commands)
