@@ -1,6 +1,9 @@
-
 import os
 import numpy as np
+
+import simtk.unit as unit
+import simtk.openmm as omm
+import simtk.openmm.app as app
 
 def periodic_distance(pos1, pos2, box_ang):
     dx = pos2 - pos1
@@ -115,3 +118,37 @@ def write_top_pdb(n_beads, sigma_slv, packing_fraction, sigma_ply, r0,
     pdb = app.PDBFile(dummypdb)
     with open(starting_pdb, "w") as fout:
         pdb.writeFile(topology, positions, file=fout)
+
+def convert_spce_to_cs(file, saveas="newpdb.pdb"):
+    """Extract and rename oxygens from all-atom water structure"""
+
+    import os
+    import numpy as np
+
+    import simtk.unit as unit
+    import simtk.openmm as omm
+    import simtk.openmm.app as app
+    file = "equil_spc.pdb"
+    saveas = "justO_spc.pdb" 
+    app.element.solvent = app.element.Element(201, "Solvent", "Sv", 18*unit.amu)
+
+    pdb = app.PDBFile(file)
+    O_idxs = np.array([atm.index for atm in pdb.topology.atoms() if atm.name == "O"])
+
+    xyz = np.array(pdb.positions/unit.angstrom)[O_idxs]
+    positions = unit.Quantity(xyz, unit.angstrom)
+
+    n_slv = len(O_idxs)
+
+    topology = app.Topology()
+    chain = topology.addChain()
+    for i in range(n_slv):
+        res = topology.addResidue("SLV", chain)
+        topology.addAtom("CS", app.element.get_by_symbol("Sv"), res)
+
+    box_edge = 5.96256971*unit.nanometer
+    topology.setUnitCellDimensions(box_edge*omm.Vec3(1, 1, 1))
+
+    with open(saveas, "w") as fout:
+        pdb.writeFile(topology, positions, file=fout)
+
