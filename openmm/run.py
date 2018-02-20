@@ -21,6 +21,15 @@ def production(topology, positions, ensemble, temperature, timestep,
         if ensemble == "NPT":
             system.addForce(omm.MonteCarloBarostat(pressure, temperature))
     
+    ##if cuda:
+    ##    platform = Platform.getPlatformByName('CUDA') 
+    ##    if gpu_idxs:
+    ##        properties = {'DeviceIndex': gpu_idxs}
+    ##    else:
+    ##        properties = {'DeviceIndex': '0'}
+
+    #platform = omm.Platform.getPlatformByName('CUDA')
+    #properties = {'DeviceIndex': '0'}
 
     # Run simulation
     simulation = app.Simulation(topology, system, integrator)
