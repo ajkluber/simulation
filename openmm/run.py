@@ -6,7 +6,7 @@ def production(topology, positions, ensemble, temperature, timestep,
         collision_rate, pressure, n_steps, nsteps_out, ff_filename,
         firstframe_name, log_name, traj_name, lastframe_name, cutoff,
         templates, nonbondedMethod=app.CutoffPeriodic, minimize=False, 
-        cuda=False, gpu_idxs=False, additional_reporters=[]): 
+        cuda=False, gpu_idxs=False, more_reporters=[]): 
 
     # load forcefield from xml file
     forcefield = app.ForceField(ff_filename)
@@ -51,9 +51,9 @@ def production(topology, positions, ensemble, temperature, timestep,
         density=True, volume=True))
 
     # add user-defined reporters for e.g. forces or velocities
-    if len(additional_reporters) > 0:
-        for i in range(len(additional_reporters)):
-            simulation.reporters.append(additional_reporters[i])
+    if len(more_reporters) > 0:
+        for i in range(len(more_reporters)):
+            simulation.reporters.append(more_reporters[i])
 
     # run simulation!
     simulation.step(n_steps)
