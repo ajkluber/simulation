@@ -30,7 +30,7 @@ def toy_polymer_params():
     # parameters for coarse-grain polymer are taken from:
     # Anthawale 2007
     sigma_ply = 0.373*unit.nanometer
-    eps_ply = 0.13986*unit.kilocalorie_per_mole
+    eps_ply = 0.58517*unit.kilojoule_per_mole
     mass_ply = 37.*unit.amu
     r0 = 0.153*unit.nanometer 
     kb = 334720.*unit.kilojoule_per_mole/(unit.nanometer**2)
