@@ -5,7 +5,8 @@ import simtk.openmm.app as app
 def production(topology, positions, ensemble, temperature, timestep,
         collision_rate, pressure, n_steps, nsteps_out, ff_filename,
         firstframe_name, log_name, traj_name, lastframe_name, cutoff,
-        templates, nonbondedMethod=app.CutoffPeriodic, minimize=False): 
+        templates, nonbondedMethod=app.CutoffPeriodic, minimize=False, 
+        cuda=False, gpu_idxs=False): 
 
     # load forcefield from xml file
     forcefield = app.ForceField(ff_filename)
@@ -21,18 +22,15 @@ def production(topology, positions, ensemble, temperature, timestep,
         if ensemble == "NPT":
             system.addForce(omm.MonteCarloBarostat(pressure, temperature))
     
-    ##if cuda:
-    ##    platform = Platform.getPlatformByName('CUDA') 
-    ##    if gpu_idxs:
-    ##        properties = {'DeviceIndex': gpu_idxs}
-    ##    else:
-    ##        properties = {'DeviceIndex': '0'}
-
-    #platform = omm.Platform.getPlatformByName('CUDA')
-    #properties = {'DeviceIndex': '0'}
+    if cuda:
+        platform = omm.Platform.getPlatformByName('CUDA') 
+        if gpu_idxs:
+            properties = {'DeviceIndex': gpu_idxs}
+        else:
+            properties = {'DeviceIndex': '0'}
 
     # Run simulation
-    simulation = app.Simulation(topology, system, integrator)
+    simulation = app.Simulation(topology, system, integrator, platform, properties)
     simulation.context.setPositions(positions)
 
     if minimize:
