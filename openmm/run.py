@@ -6,7 +6,7 @@ def production(topology, positions, ensemble, temperature, timestep,
         collision_rate, pressure, n_steps, nsteps_out, ff_filename,
         firstframe_name, log_name, traj_name, lastframe_name, cutoff,
         templates, nonbondedMethod=app.CutoffPeriodic, minimize=False, 
-        cuda=False, gpu_idxs=False): 
+        cuda=False, gpu_idxs=False, additional_reporters=[]): 
 
     # load forcefield from xml file
     forcefield = app.ForceField(ff_filename)
@@ -29,8 +29,11 @@ def production(topology, positions, ensemble, temperature, timestep,
         else:
             properties = {'DeviceIndex': '0'}
 
-    # Run simulation
-    simulation = app.Simulation(topology, system, integrator, platform, properties)
+        simulation = app.Simulation(topology, system, integrator, platform, properties)
+    else:
+        simulation = app.Simulation(topology, system, integrator)
+
+    # set initial positions 
     simulation.context.setPositions(positions)
 
     if minimize:
@@ -41,10 +44,18 @@ def production(topology, positions, ensemble, temperature, timestep,
     simulation.step(1)
     simulation.reporters.pop(0)
 
+    # record coordinates
     simulation.reporters.append(app.DCDReporter(traj_name, nsteps_out))
     simulation.reporters.append(app.StateDataReporter(log_name, nsteps_out,
         step=True, potentialEnergy=True, kineticEnergy=True, temperature=True,
         density=True, volume=True))
+
+    # add user-defined reporters for e.g. forces or velocities
+    if len(additional_reporters) > 0:
+        for i in range(len(additional_reporters)):
+            simulation.reporters.append(additional_reporters[i])
+
+    # run simulation!
     simulation.step(n_steps)
 
     simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
