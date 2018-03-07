@@ -5,8 +5,9 @@ import simtk.openmm.app as app
 def production(topology, positions, ensemble, temperature, timestep,
         collision_rate, pressure, n_steps, nsteps_out, ff_filename,
         firstframe_name, log_name, traj_name, lastframe_name, cutoff,
-        templates, nonbondedMethod=app.CutoffPeriodic, minimize=False,
-        cuda=False, gpu_idxs=False, more_reporters=[], dynamics="Langevin"): 
+        templates, n_equil_steps=1000, nonbondedMethod=app.CutoffPeriodic,
+        minimize=False, cuda=False, gpu_idxs=False, more_reporters=[],
+        dynamics="Langevin"): 
 
     # load forcefield from xml file
     forcefield = app.ForceField(ff_filename)
@@ -43,6 +44,9 @@ def production(topology, positions, ensemble, temperature, timestep,
 
     if minimize:
         simulation.minimizeEnergy()
+
+    # initial equilibration
+    simulation.step(n_equil_steps)
 
     # save the first frame minimized
     simulation.reporters.append(app.PDBReporter(firstframe_name, 1))
