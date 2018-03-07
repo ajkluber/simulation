@@ -35,8 +35,8 @@ def toy_polymer_params(soft_bonds=False):
     r0 = 0.153*unit.nanometer 
     theta0 = 111*unit.degree
     if soft_bonds:
-        kb = 500.*unit.kilojoule_per_mole/(unit.nanometer**2)
-        ka = 100.*unit.kilojoule_per_mole/(unit.radian**2)
+        kb = 1000.*unit.kilojoule_per_mole/(unit.nanometer**2)
+        ka = 500*unit.kilojoule_per_mole/(unit.radian**2)
     else:
         kb = 334720.*unit.kilojoule_per_mole/(unit.nanometer**2)
         ka = 462.*unit.kilojoule_per_mole/(unit.radian**2)
