@@ -5,8 +5,8 @@ import simtk.openmm.app as app
 def production(topology, positions, ensemble, temperature, timestep,
         collision_rate, pressure, n_steps, nsteps_out, ff_filename,
         firstframe_name, log_name, traj_name, lastframe_name, cutoff,
-        templates, nonbondedMethod=app.CutoffPeriodic, minimize=False, 
-        cuda=False, gpu_idxs=False, more_reporters=[]): 
+        templates, nonbondedMethod=app.CutoffPeriodic, minimize=False,
+        cuda=False, gpu_idxs=False, more_reporters=[], dynamics="Langevin"): 
 
     # load forcefield from xml file
     forcefield = app.ForceField(ff_filename)
@@ -18,7 +18,12 @@ def production(topology, positions, ensemble, temperature, timestep,
     if ensemble == "NVE": 
         integrator = omm.VerletIntegrator(timestep)
     else:
-        integrator = omm.LangevinIntegrator(temperature, collision_rate, timestep)
+        if dynamics == "Langevin":
+            integrator = omm.LangevinIntegrator(temperature, collision_rate, timestep)
+        elif dynamics == "Brownian":
+            integrator = omm.BrownianIntegrator(temperature, collision_rate, timestep)
+        else:
+            raise IOError("dynamics must be Langevin or Brownian")
         if ensemble == "NPT":
             system.addForce(omm.MonteCarloBarostat(pressure, temperature))
     
