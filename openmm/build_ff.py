@@ -26,7 +26,7 @@ def add_element_traits(elem, traits):
     for key, value in traits.items():
         elem.set(key, value)
 
-def toy_polymer_params(soft_bonds=False):
+def toy_polymer_params():
     # parameters for coarse-grain polymer are taken from:
     # Anthawale 2007
     sigma_ply = 0.373*unit.nanometer
@@ -34,12 +34,8 @@ def toy_polymer_params(soft_bonds=False):
     mass_ply = 37.*unit.amu
     r0 = 0.153*unit.nanometer 
     theta0 = 111*unit.degree
-    if soft_bonds:
-        kb = 1000.*unit.kilojoule_per_mole/(unit.nanometer**2)
-        ka = 500*unit.kilojoule_per_mole/(unit.radian**2)
-    else:
-        kb = 334720.*unit.kilojoule_per_mole/(unit.nanometer**2)
-        ka = 462.*unit.kilojoule_per_mole/(unit.radian**2)
+    kb = 334720.*unit.kilojoule_per_mole/(unit.nanometer**2)
+    ka = 462.*unit.kilojoule_per_mole/(unit.radian**2)
     bonded_params = [r0, kb, theta0, ka]
 
     return sigma_ply, eps_ply, mass_ply, bonded_params
@@ -60,9 +56,9 @@ def LJ_water_params():
     mass_slv = 18.*unit.amu
     return sigma_slv, eps_slv, mass_slv
 
-def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=False):
+def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types):
 
-    sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params(soft_bonds=soft_bonds)
+    sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
 
     for n in range(n_beads):
         # residues have the same set of atoms but we give them unique names in
@@ -95,7 +91,7 @@ def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=False
                     "angle":str(theta0/unit.radians),"k":str(ka/ka_units)})
 
 
-def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False):
+def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml"):
     """Build xml forcefield file for toy polymer
     
     Parameters
@@ -108,7 +104,7 @@ def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False)
     """
 
     sigma_slv, eps_slv, mass_slv = LJ_water_params()
-    sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params(soft_bonds=soft_bonds)
+    sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
 
     rmin = 0.6*sigma_slv
     rmax = 1.5*cutoff
@@ -160,13 +156,13 @@ def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False)
     ljsw_f.text = LJtab
 
     # add polymer only items
-    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=soft_bonds)
+    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types)
 
     indent(ff)
     with open(saveas, "w") as fout:
         fout.write(ET.tostring(ff))
 
-def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False):
+def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml"):
     """Build xml forcefield file for toy polymer
     
     Parameters
@@ -177,7 +173,7 @@ def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False)
     """
 
     eps_ww, sigma_ww, B, r0, Delta, mass_slv = CS_water_params()
-    sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params(soft_bonds=soft_bonds)
+    sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
 
     rmin = 0.6*sigma_ww
     rmax = 1.5*cutoff
@@ -226,7 +222,7 @@ def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False)
     cs_f.text = cs_tab
 
     # add polymer only items
-    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=soft_bonds)
+    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types)
 
     indent(ff)
     with open(saveas, "w") as fout:
