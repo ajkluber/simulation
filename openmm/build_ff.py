@@ -26,6 +26,19 @@ def add_element_traits(elem, traits):
     for key, value in traits.items():
         elem.set(key, value)
 
+def toy_polymer_params_soft_bonds():
+    # SOFTER parameters for coarse-grain polymer are taken from:
+    sigma_ply = 0.373*unit.nanometer
+    eps_ply = 1*unit.kilojoule_per_mole
+    mass_ply = 37.*unit.amu
+    r0 = 0.153*unit.nanometer 
+    theta0 = 111*unit.degree
+    kb = 100.*unit.kilojoule_per_mole/(unit.nanometer**2)
+    ka = 20.*unit.kilojoule_per_mole/(unit.radian**2)
+    bonded_params = [r0, kb, theta0, ka]
+
+    return sigma_ply, eps_ply, mass_ply, bonded_params
+
 def toy_polymer_params():
     # parameters for coarse-grain polymer are taken from:
     # Anthawale 2007
@@ -91,7 +104,7 @@ def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types):
                     "angle":str(theta0/unit.radians),"k":str(ka/ka_units)})
 
 
-def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml"):
+def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False):
     """Build xml forcefield file for toy polymer
     
     Parameters
@@ -104,7 +117,10 @@ def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml"):
     """
 
     sigma_slv, eps_slv, mass_slv = LJ_water_params()
-    sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
+    if soft_bonds:
+        sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params_soft_bonds()
+    else:
+        sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
 
     rmin = 0.6*sigma_slv
     rmax = 1.5*cutoff
@@ -162,7 +178,7 @@ def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml"):
     with open(saveas, "w") as fout:
         fout.write(ET.tostring(ff))
 
-def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml"):
+def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False):
     """Build xml forcefield file for toy polymer
     
     Parameters
@@ -173,7 +189,10 @@ def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml"):
     """
 
     eps_ww, sigma_ww, B, r0, Delta, mass_slv = CS_water_params()
-    sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
+    if soft_bonds:
+        sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params_soft_bonds()
+    else:
+        sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
 
     rmin = 0.6*sigma_ww
     rmax = 1.5*cutoff
