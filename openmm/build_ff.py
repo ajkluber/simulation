@@ -26,30 +26,15 @@ def add_element_traits(elem, traits):
     for key, value in traits.items():
         elem.set(key, value)
 
-def soft_bond_toy_polymer_params():
-    # parameters for coarse-grain polymer are taken from:
-    # Anthawale 2007
-    sigma_ply = 0.373*unit.nanometer
-    eps_ply = 1.*unit.kilojoule_per_mole
-    mass_ply = 37.*unit.amu
-    r0 = 0.153*unit.nanometer 
-    kb = 100.*unit.kilojoule_per_mole/(unit.nanometer**2)
-    theta0 = 111*unit.degree
-    ka = 20.*unit.kilojoule_per_mole/(unit.radian**2)
-    bonded_params = [r0, kb, theta0, ka]
-
-    return sigma_ply, eps_ply, mass_ply, bonded_params
-
 def toy_polymer_params():
     # parameters for coarse-grain polymer are taken from:
     # Anthawale 2007
     sigma_ply = 0.373*unit.nanometer
-    #eps_ply = 0.13986*unit.kilocalorie_per_mole
     eps_ply = 0.58517*unit.kilojoule_per_mole
     mass_ply = 37.*unit.amu
     r0 = 0.153*unit.nanometer 
-    kb = 334720.*unit.kilojoule_per_mole/(unit.nanometer**2)
     theta0 = 111*unit.degree
+    kb = 334720.*unit.kilojoule_per_mole/(unit.nanometer**2)
     ka = 462.*unit.kilojoule_per_mole/(unit.radian**2)
     bonded_params = [r0, kb, theta0, ka]
 
