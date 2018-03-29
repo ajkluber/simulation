@@ -69,9 +69,12 @@ def LJ_water_params():
     mass_slv = 18.*unit.amu
     return sigma_slv, eps_slv, mass_slv
 
-def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types):
+def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=False):
 
-    sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
+    if soft_bonds:
+        sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params_soft_bonds()
+    else:
+        sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
 
     for n in range(n_beads):
         # residues have the same set of atoms but we give them unique names in
@@ -172,7 +175,7 @@ def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False)
     ljsw_f.text = LJtab
 
     # add polymer only items
-    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types)
+    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=soft_bonds)
 
     indent(ff)
     with open(saveas, "w") as fout:
@@ -241,7 +244,7 @@ def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False)
     cs_f.text = cs_tab
 
     # add polymer only items
-    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types)
+    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=soft_bonds)
 
     indent(ff)
     with open(saveas, "w") as fout:
