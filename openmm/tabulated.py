@@ -15,7 +15,7 @@ def create_table_string(y):
 
 def apply_switch(y, r, r_switch, r_cut):
     """Multiple potential by switching function to force it to zero at r_cut"""
-    y_sw = unit.Quantity(np.zeros(len(r)), unit.kilojoule_per_mole)
+    y_sw = unit.Quantity(np.zeros(r.shape), unit.kilojoule_per_mole)
     y_sw[r < r_switch] = y[r < r_switch]
     sw_region = (r >= r_switch) & (r <= r_cut)
     y_sw[sw_region] = y[sw_region]*switch(r[sw_region], r_switch, r_cut)
@@ -53,7 +53,7 @@ def Chaimovich_table(eps_ww, sigma_ww, B, r0, Delta, rmin, rmax, r_switch, r_cut
 
 ################### INTERACTION FUNCTIONS #################
 def WCA(r, sigma, eps):
-    val = np.zeros(len(r), float)
+    val = np.zeros(r.shape, float)
     r0 = sigma*(2**(1./6))
     val[r < r0] = 4.*((sigma/r[r < r0])**12 - (sigma/r[r < r0])**6) + 1.
     return eps*val
