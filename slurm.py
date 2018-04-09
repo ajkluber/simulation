@@ -43,7 +43,11 @@ def make_script_string(commands, jobname, gpus=False, partition="commons",
         if emailtype:
             slurm +="#SBATCH --mail-type={}\n".format(emailtype)
     if dependency_type:
-        slurm += "#SBATCH --dependency={}:{}\n".format(dependency_type, dependency_ID)
+        if type(dependency_ID) == list:
+            dep_str = ":".join([ str(x) for x in dependency_ID])
+        else:
+            dep_str = dependency_ID
+        slurm += "#SBATCH --dependency={}:{}\n".format(dependency_type, dep_str)
     if cd_slurm_dir:
         slurm +="cd $SLURM_SUBMIT_DIR\n"
     slurm += 'pwd\n'
