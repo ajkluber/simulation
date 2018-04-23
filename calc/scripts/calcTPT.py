@@ -26,6 +26,11 @@ if __name__ == "__main__":
         Fdata = np.loadtxt("T_{}_F.dat".format(T_used))
         xinterp, F = pmfutil.interpolate_profile(mid_bin, Fdata)
         minidx, maxidx = pmfutil.extrema_from_profile(xinterp, F)
+        print len(xinterp), minidx, xinterp[minidx]
+
+        # don't count minima at the ends of data 
+        minidx = np.array([ idx for idx in minidx if (10 < idx < (len(xinterp) - 10)) ])
+        maxidx = np.array([ idx for idx in maxidx if (10 < idx < (len(xinterp) - 10)) ])
         np.savetxt("minima.dat", xinterp[minidx])
         with open("T_used.dat", "w") as fout:
             fout.write(str(T_used))
