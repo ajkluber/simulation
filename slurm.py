@@ -33,7 +33,11 @@ def make_script_string(commands, jobname, gpus=False, partition="commons",
     slurm +="#SBATCH --time={}\n".format(walltime)
     slurm +="#SBATCH --export=ALL\n"
     if exclude_nodes:
-        slurm += "#SBATCH --exclude={}\n".format(exclude_nodes)
+        if type(exclude_nodes) == list:
+            exc_str = ":".join([ str(x) for x in exclude_nodes])
+        else:
+            exc_str = exclude_nodes 
+        slurm += "#SBATCH --exclude={}\n".format(exc_str)
     if exclusive:
         slurm +="#SBATCH --exclusive\n"
     if mem_per_cpu:
@@ -42,7 +46,7 @@ def make_script_string(commands, jobname, gpus=False, partition="commons",
         slurm +="#SBATCH --mail-user={}\n".format(email)
         if emailtype:
             slurm +="#SBATCH --mail-type={}\n".format(emailtype)
-    if dependency_type:
+    if dependency_type and dependency_ID:
         if type(dependency_ID) == list:
             dep_str = ":".join([ str(x) for x in dependency_ID])
         else:
