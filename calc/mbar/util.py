@@ -59,9 +59,9 @@ def get_mbar_multi_temp(tempsfile, n_interpolate, n_extrapolate=0, engfile="Etot
         #    pre_N_k = mbar_pkl["N_k"]
         #    pre_f_k = mbar_pkl["f_k"]
         #    pre_beta = mbar_pkl["beta"]
-        pre_N_k = np.load("N_k.npy")
-        pre_f_k = np.load("f_k.npy")
-        pre_beta = np.load("beta.npy")
+        pre_N_k = np.load("mbar/N_k.npy")
+        pre_f_k = np.load("mbar/f_k.npy")
+        pre_beta = np.load("mbar/beta.npy")
 
         if len(beta) == len(pre_beta):
             if np.allclose(pre_beta, beta):
