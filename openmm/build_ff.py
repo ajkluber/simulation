@@ -250,3 +250,22 @@ def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False)
     with open(saveas, "w") as fout:
         fout.write(ET.tostring(ff))
 
+
+def read_polymer_params(n_beads, s_frames, bonds, angles, non_bond_wca, non_bond_gaussian, method):
+
+    savedir = "coeff_vs_s"
+    if bonds:
+        savedir += "_bond"
+    if angles:
+        savedir += "_angle"
+    if non_bond_wca:
+        savedir += "_wca"
+    if non_bond_gaussians:
+        savedir += "_gauss"
+    savedir += "_" + method
+
+    n_params = np.sum([ int(x == True) for x in [bonds, angles, non_bond_wca, non_bond_gaussians]])
+
+    #for n in range(n_params):
+    #np.save("{}/coeff_{}_s_{}.npy".format(savedir, n+1, s_frames), temp_coeff)
+
