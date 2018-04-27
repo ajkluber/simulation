@@ -42,7 +42,7 @@ def make_script_string(commands, jobname, gpus=False, partition="commons",
         slurm +="#SBATCH --mail-user={}\n".format(email)
         if emailtype:
             slurm +="#SBATCH --mail-type={}\n".format(emailtype)
-    if dependency_type:
+    if dependency_type and dependency_ID:
         if type(dependency_ID) == list:
             dep_str = ":".join([ str(x) for x in dependency_ID])
         else:
