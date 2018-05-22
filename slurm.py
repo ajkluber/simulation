@@ -23,11 +23,12 @@ def make_script_string(commands, jobname, gpus=False, partition="commons",
 
     slurm = "#!/bin/bash\n"
     slurm +="#SBATCH --job-name={}\n".format(jobname)
-    slurm +="#SBATCH --account=commons\n"
     if gpus:
         slurm +="#SBATCH --gres=gpu:{}\n".format(gpus)
     else:
         slurm +="#SBATCH --partition={}\n".format(partition)
+        if partition == "commons":
+            slurm +="#SBATCH --account={}\n".format(partition)
     slurm +="#SBATCH --nodes={}\n".format(nodes)
     slurm +="#SBATCH --ntasks-per-node={}\n".format(ntasks_per_node)
     slurm +="#SBATCH --time={}\n".format(walltime)
