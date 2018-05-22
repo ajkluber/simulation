@@ -16,7 +16,7 @@ def calc_Kramers_tau_at_Tf(coordfile, n_native_pairs, dt, max_lag):
 
     # diffusion coefficient from the autocorrelation of Q in unfolded state.
     # See Socci ''diffusive dynamics...''; Hummer ''Position-dependent diffusion...''
-    acf_xU, var_xU, tau_x, D_U = transits.calculate_D_from_acf(x_U, dt, max_lag=max_lag)
+    acf_xU, var_xU, tau_x, D_U, acf_std = transits.calculate_D_from_acf(x_U, dt, max_lag=max_lag)
 
     # calculate Kramer's mean-first passage time
     tau_K_integral, tau_K_simple = transits.calculate_Kramers_tau(tau_x, D_U, n_native_pairs)
@@ -26,6 +26,8 @@ def calc_Kramers_tau_at_Tf(coordfile, n_native_pairs, dt, max_lag):
     os.chdir("Qtanh_0_05_Kramers")
     np.savetxt("T_{:.2f}_Kramers.dat".format(T_used), np.array([var_xU, tau_x, D_U, tau_K_integral, tau_K_simple]))
     np.save("T_{:.2f}_acf.npy".format(T_used), acf_xU)
+    if len(acf_std) > 0:
+        np.save("T_{:.2f}_acf_std.npy".format(T_used), acf_std)
     os.chdir("..")
 
 def calc_D_cold_temps(coordfile, n_native_pairs, dt, max_lag):
@@ -38,7 +40,7 @@ def calc_D_cold_temps(coordfile, n_native_pairs, dt, max_lag):
     D_all = []
     for i in range(len(T)):
         xtrajs = [ np.load("{}/{}".format(tdir,coordfile))/float(n_native_pairs) for tdir in organized_temps[T[i]] ]
-        acf_xU, var_xU, tau_x, D_U = transits.calculate_D_from_acf(xtrajs, dt, max_lag=max_lag)
+        acf_xU, var_xU, tau_x, D_U, acf_std = transits.calculate_D_from_acf(xtrajs, dt, max_lag=max_lag)
          
         if not os.path.exists("Qtanh_0_05_Kramers"):
             os.mkdir("Qtanh_0_05_Kramers")
@@ -63,7 +65,7 @@ def dummy():
     tau_all = []
     for i in range(len(T)):
         xtrajs = [ np.load("{}/{}".format(tdir,coordfile)) for tdir in organized_temps[T[i]] ]
-        acf_xU, var_xU, tau_x, D_U = transits.calculate_D_from_acf(xtrajs, dt)
+        acf_xU, var_xU, tau_x, D_U, acf_std = transits.calculate_D_from_acf(xtrajs, dt)
         acf_all.append(acf_xU)
         tau_all.append(tau_x)
         D_all.append(D_U)
