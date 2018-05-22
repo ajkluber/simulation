@@ -139,13 +139,33 @@ def calculate_D_from_acf(x_U, dt, max_lag=500):
 
     # calculate autocorrelation function (acf) of reaction coordinate in 
     # unfolded state
+    max_lag = np.min([max_lag, int(np.floor(np.percentile([ len(x_U[i]) for i in range(len(x_U)) ], 50)))])
+
     acf_xU = acf(x_U, max_lag=max_lag)
+    N = len(x_U)
+    if N > 10:
+        idxs = np.random.permutation(np.arange(N))
+        n_folds = 4
+        size = N/n_folds 
+        all_acf = []
+        for i in range(n_folds):
+            use_idxs = idxs[i*N/n_folds:(i + 1)*N/n_folds] 
+            temp_xU = []
+            for j in range(len(use_idxs)):
+                temp_xU.append(x_U[use_idxs[j]])
+            acf_temp = acf(temp_xU, max_lag=max_lag)
+            all_acf.append(acf_temp[:,0])
+        # what if 
+        acf_std = np.std(np.array(all_acf), axis=0)
+        acf_std[acf_std == 0] = 1e-8
+    else:
+        acf_std = []
 
     var_xU = np.var(np.concatenate(x_U))
     tau_x = np.sum(acf_xU)*dt
     D_U = var_xU/tau_x
 
-    return acf_xU[:,0], var_xU, tau_x, D_U
+    return acf_xU[:,0], var_xU, tau_x, D_U, acf_std
 
 def calculate_Kramers_tau(tau_x, D_U, n_native_pairs):
     """Calculate diffusion coefficient in unfolded state"""
