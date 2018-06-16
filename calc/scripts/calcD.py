@@ -1,4 +1,5 @@
 import os
+import glob
 import argparse
 import numpy as np
 
@@ -8,8 +9,19 @@ import simulation.calc.util as util
 def calc_Kramers_tau_at_Tf(coordfile, n_native_pairs, dt, max_lag):
     """Calculate Kramers theory folding time and diffusion coefficient"""
 
-    with open("Qtanh_0_05_profile/T_used.dat") as fin:
-        T_used = float(fin.read())
+    #import pdb 
+    #pdb.set_trace()
+    temp_dirs = glob.glob("T_*_1")
+    if os.path.exists("Qtanh_0_05_profile/T_used.dat"):
+        with open("Qtanh_0_05_profile/T_used.dat") as fin:
+            T_used = float(fin.read())
+    elif os.path.exists("T_used.dat"):
+        with open("T_used.dat") as fin:
+            T_used = float(fin.read())
+    elif len(temp_dirs) > 0:
+        T_used = float(temp_dirs[0].split("_")[1])
+    else:
+        raise IOError("Missing input file T_used.dat")
 
     # get reaction coordinate in U state
     x_U = transits.get_U_trajs(coordfile, n_native_pairs)

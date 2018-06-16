@@ -17,11 +17,25 @@ if __name__ == "__main__":
     T = organized_temps.keys()
     T.sort()
 
+    if os.path.exists("Qtanh_0_05_profile/T_used.dat"):
+        with open("Qtanh_0_05_profile/T_used.dat", "r") as fout:
+            T_used = float(fout.read())
+    else:
+        if len(T) == 1:
+            with open("Qtanh_0_05_profile/T_used.dat", "w") as fout:
+                fout.write(str(T[0]))
+            T_used = T[0]
+        else:
+            dF_min_idx = np.argmin([ (float(open("T_{}_stab.dat".format(x)).read()))**2 for x in T ])
+            T_used = T[dF_min_idx] 
+
     # determine which temperature is closest to the folding temperature
     os.chdir(coordname + "_profile")
-    if not (os.path.exists("T_used.dat") and os.path.exists("minima.dat")):
-        dF_min_idx = np.argmin([ (float(open("T_{}_stab.dat".format(x)).read()))**2 for x in T ])
-        T_used = T[dF_min_idx] 
+    if os.path.exists("minima.dat"):
+        minima = np.loadtxt("minima.dat")
+        U = minima.min()
+        N = minima.max()
+    else:
         mid_bin = np.loadtxt("T_{}_mid_bin.dat".format(T_used))
         Fdata = np.loadtxt("T_{}_F.dat".format(T_used))
         xinterp, F = pmfutil.interpolate_profile(mid_bin, Fdata)
@@ -32,16 +46,9 @@ if __name__ == "__main__":
         minidx = np.array([ idx for idx in minidx if (10 < idx < (len(xinterp) - 10)) ])
         maxidx = np.array([ idx for idx in maxidx if (10 < idx < (len(xinterp) - 10)) ])
         np.savetxt("minima.dat", xinterp[minidx])
-        with open("T_used.dat", "w") as fout:
-            fout.write(str(T_used))
+
         U = xinterp[minidx].min()
         N = xinterp[minidx].max()
-    else:
-        with open("T_used.dat", "r") as fin:
-            T_used = float(fin.read())
-        minima = np.loadtxt("minima.dat")
-        U = minima.min()
-        N = minima.max()
 
     os.chdir("..")
 
