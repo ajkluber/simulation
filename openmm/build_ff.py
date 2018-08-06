@@ -53,6 +53,38 @@ def toy_polymer_params():
 
     return sigma_ply, eps_ply, mass_ply, bonded_params
 
+def CS_water_table(T):
+    #TODO
+    T_tab = np.array([280., 290., 300., 310., 320.])
+    eps_tab = np.array([22.41, 21.39, 20.38, 20.05, 19.73])
+    sigma_tab = np.array([0.2420, 0.2425, 0.2429, 0.2430, 0.2431])
+    B_tab = np.array([25.77, 24.56, 23.35, 23.15, 22.95]
+    r0_tab = np.array([0.2446, 0.2455, 0.2465, 0.2451, 0.2437])
+
+    table = [np.array([0.1099, 0.1095, 0.1090, 0.1098, 0.1106]),
+            np.array([280., 290., 300., 310., 320.]),
+            np.array([22.41, 21.39, 20.38, 20.05, 19.73]),
+            np.array([0.2420, 0.2425, 0.2429, 0.2430, 0.2431]),
+            np.array([25.77, 24.56, 23.35, 23.15, 22.95]),
+            np.array([0.2446, 0.2455, 0.2465, 0.2451, 0.2437]),
+            np.array([0.1099, 0.1095, 0.1090, 0.1098, 0.1106])]
+
+    for i in range(1, len(table)):
+        pass
+
+    units_to_use = [unit.kiljoule_per_mole, unit.nanometer,
+        unit.kiljoule_per_mole, unit.nanometer, unit.nanometer] 
+
+    import scipy.interpolate
+    scipy.interpolate.interp1d(T, sigma) 
+
+    eps_ww = 20.38*unit.kilojoule_per_mole
+    sigma_ww = 0.2429*unit.nanometer
+    B = 23.35*unit.kilojoule_per_mole
+    r0 = 0.2465*unit.nanometer
+    Delta = 0.1090*unit.nanometer
+    mass_slv = 18.*unit.amu
+
 def CS_water_params():
     eps_ww = 20.38*unit.kilojoule_per_mole
     sigma_ww = 0.2429*unit.nanometer
