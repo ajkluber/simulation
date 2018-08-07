@@ -53,12 +53,26 @@ def toy_polymer_params():
 
     return sigma_ply, eps_ply, mass_ply, bonded_params
 
+def LJ_polymer_params():
+    # parameters for coarse-grain polymer are taken from:
+    # Anthawale 2007
+    sigma_ply = 0.373*unit.nanometer
+    eps_ply = 0.1*unit.kilojoule_per_mole
+    mass_ply = 37.*unit.amu
+    r0 = 0.153*unit.nanometer 
+    theta0 = 111*unit.degree
+    kb = 334720.*unit.kilojoule_per_mole/(unit.nanometer**2)
+    ka = 462.*unit.kilojoule_per_mole/(unit.radian**2)
+    bonded_params = [r0, kb, theta0, ka]
+
+    return sigma_ply, eps_ply, mass_ply, bonded_params
+
 def CS_water_table(T):
     #TODO
     T_tab = np.array([280., 290., 300., 310., 320.])
     eps_tab = np.array([22.41, 21.39, 20.38, 20.05, 19.73])
     sigma_tab = np.array([0.2420, 0.2425, 0.2429, 0.2430, 0.2431])
-    B_tab = np.array([25.77, 24.56, 23.35, 23.15, 22.95]
+    B_tab = np.array([25.77, 24.56, 23.35, 23.15, 22.95])
     r0_tab = np.array([0.2446, 0.2455, 0.2465, 0.2451, 0.2437])
 
     table = [np.array([0.1099, 0.1095, 0.1090, 0.1098, 0.1106]),
@@ -86,6 +100,7 @@ def CS_water_table(T):
     mass_slv = 18.*unit.amu
 
 def CS_water_params():
+    # parameters at 300K
     eps_ww = 20.38*unit.kilojoule_per_mole
     sigma_ww = 0.2429*unit.nanometer
     B = 23.35*unit.kilojoule_per_mole
@@ -96,10 +111,10 @@ def CS_water_params():
 
 def LJ_water_params():
     # LJ solvent parameters.
+    eps_slv = 1.*unit.kilojoule_per_mole
     sigma_slv = 0.3151*unit.nanometer
-    eps_slv = 1*unit.kilojoule_per_mole
     mass_slv = 18.*unit.amu
-    return sigma_slv, eps_slv, mass_slv
+    return eps_slv, sigma_slv, mass_slv
 
 def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=False):
 
@@ -138,6 +153,75 @@ def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=False
                 {"type1":"Poly" + str(n - 1) , "type2":"Poly" + str(n), "type3":"Poly" + str(n + 1), 
                     "angle":str(theta0/unit.radians),"k":str(ka/ka_units)})
 
+def LJ_toy_polymer_LJ_water(n_beads, cutoff, solvent_params, saveas="ff_cgs.xml", soft_bonds=False):
+    """Build xml forcefield file for toy polymer
+    
+    Parameters
+    ----------
+    n_beads : int
+        Number of monomers.
+    cutoff : float
+        Cutoff radius for long range interactions.
+    
+    """
+
+    #sigma_slv, eps_slv, mass_slv = LJ_water_params()
+    sigma_slv, eps_slv, mass_slv = solvent_params
+    sigma_ply, eps_ply, mass_ply, bonded_params = LJ_polymer_params()
+
+    rmin = 0.6*sigma_slv
+    rmax = 1.5*cutoff
+
+    #app.element.solvent = app.element.Element(201, "Solvent", "Sv", mass_slv)
+    #app.element.polymer = app.element.Element(200, "Polymer", "Pl", mass_ply)
+
+    # forcefield xml tags
+    ff = ET.Element("ForceField")
+    atm_types = ET.SubElement(ff, "AtomTypes")
+    res_types = ET.SubElement(ff, "Residues")
+
+    # solvent parameters
+    add_element_traits(ET.SubElement(atm_types, "Type"),
+        {"name":"Solv", "class": "LJ", "element":"Sv", "mass":str(mass_slv/unit.amu)})
+    add_element_traits(ET.SubElement(ET.SubElement(res_types, "Residue",
+        attrib={"name":"SLV"}), "Atom"), {"name":"LJ", "type":"Solv"})
+
+    # add custom nonbonded interactions that are:
+    #  1) Strong Lennard-Jones (LJ) interactions between solvent atoms
+    #  2) Weak LJ for polymer-polymer and polymer-solvent interactions
+    cust_nb_f = ET.SubElement(ff, "CustomNonbondedForce",
+            {"energy":"areslv*eps_slv*(5*((rmin_slv/r)^12) - 6*((rmin_slv/r)^10)) + (1 - areslv)*eps_ply*(5*((rmin_ply/r)^12) - 6*((rmin_ply/r)^10)); areslv=step((flavor1 + flavor2) - 1.5);", 
+                "bondCutoff":"3"})
+            #{"energy":"areslv*epsslv*((sigmaslv/r)^12 - (sigmaslv/r)^6) + (1 - areslv)*4*epsply*((sigmaply/r)^12 - (sigmaply/r)^6); areslv=step((flavor1 + flavor2) - 1.5); ", 
+
+    # LJ parameters are global
+    str_eps_slv = str(eps_slv/unit.kilojoule_per_mole)
+    str_rmin_slv = str(sigma_slv/unit.nanometer)
+
+    str_eps_ply = str(eps_ply/unit.kilojoule_per_mole)
+    str_rmin_ply = str(sigma_ply/unit.nanometer)
+
+    add_element_traits(ET.SubElement(cust_nb_f, "GlobalParameter"), {"name":"eps_slv", "defaultValue":str_eps_slv})
+    add_element_traits(ET.SubElement(cust_nb_f, "GlobalParameter"), {"name":"rmin_slv", "defaultValue":str_rmin_slv})
+    add_element_traits(ET.SubElement(cust_nb_f, "GlobalParameter"), {"name":"eps_ply", "defaultValue":str_eps_ply})
+    add_element_traits(ET.SubElement(cust_nb_f, "GlobalParameter"), {"name":"rmin_ply", "defaultValue":str_rmin_ply})
+
+    # each particle class (solvent=LJ, polymer=PL) has a 'flavor'. Flavors
+    # determine the interaction
+    add_element_traits(ET.SubElement(cust_nb_f, "PerParticleParameter"), {"name":"flavor"})
+    add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"LJ", "flavor":"1"})
+    add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"PL", "flavor":"0"})
+
+    # OpenMM switches interaction to be exactly zero at cutoff distance
+    r_switch = cutoff - 0.11*unit.nanometer
+    r_cut = cutoff - 0.01*unit.nanometer
+
+    # add polymer only items
+    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=soft_bonds)
+
+    indent(ff)
+    with open(saveas, "w") as fout:
+        fout.write(ET.tostring(ff))
 
 def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False):
     """Build xml forcefield file for toy polymer
@@ -181,6 +265,7 @@ def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False)
     cust_nb_f = ET.SubElement(ff, "CustomNonbondedForce",
             {"energy":"areslv*LJsw(r) + (1 - areslv)*WCA(r); areslv=step((flavor1 + flavor2) - 1.5)", 
                 "bondCutoff":"3"})
+            #{"energy":"areslv*4*epsslv*((sigmaslv/r)^12 - (sigmaslv/r)^6) + (1 - areslv)*4*epsply*((sigmaply/r)^12 - (sigmaply/r)^6); areslv=step((flavor1 + flavor2) - 1.5); ", 
 
     # each particle class (solvent=LJ, polymer=PL) has a 'flavor'. Flavors
     # determine the interaction
