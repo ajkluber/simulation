@@ -6,8 +6,8 @@ def production(topology, positions, ensemble, temperature, timestep,
         collision_rate, pressure, n_steps, nsteps_out, ff_filename,
         firstframe_name, log_name, traj_name, lastframe_name, cutoff,
         templates, n_equil_steps=1000, nonbondedMethod=app.CutoffPeriodic,
-        minimize=False, cuda=False, gpu_idxs=False, more_reporters=[],
-        dynamics="Langevin"): 
+        use_switch=False, r_switch=0, minimize=False, cuda=False,
+        gpu_idxs=False, more_reporters=[], dynamics="Langevin"): 
 
     # load forcefield from xml file
     forcefield = app.ForceField(ff_filename)
@@ -15,6 +15,14 @@ def production(topology, positions, ensemble, temperature, timestep,
     system = forcefield.createSystem(topology,
             nonbondedMethod=nonbondedMethod, nonbondedCutoff=cutoff,
             ignoreExternalBonds=True, residueTemplates=templates)
+
+    if use_switch:
+        nb_force = system.getForce(0) # assume nonbonded interactions are first force
+        nb_force.setUseSwitchingFunction(True)
+        if r_switch == 0:
+            raise IOError("Set switching distance")
+        else:
+            nb_force.setSwitchingDistance(r_switch/unit.nanometer)
             
     if ensemble == "NVE": 
         integrator = omm.VerletIntegrator(timestep)
