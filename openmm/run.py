@@ -170,10 +170,11 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
     np.save("pressure_in_atm_vs_step.npy", all_P)
     np.save("volume_in_nm3_vs_step.npy", all_V)
     
-    avgV = np.mean(all_V[200:]) 
-    stdV = np.std(all_V[200:]) 
-    avgP = np.mean(all_P[200:]) 
-    stdP = np.std(all_P[200:]) 
+    N = len(all_P)
+    avgV = np.mean(all_V[N/2:]) 
+    stdV = np.std(all_V[N/2:]) 
+    avgP = np.mean(all_P[N/2:]) 
+    stdP = np.std(all_P[N/2:]) 
 
     np.savetxt("avgV.dat", np.array([avgV, stdV]))
     np.savetxt("pressure.dat", np.array([avgP, stdP]))
