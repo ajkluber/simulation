@@ -45,13 +45,20 @@ def toy_polymer_params():
     sigma_ply = 0.373*unit.nanometer
     eps_ply = 0.58517*unit.kilojoule_per_mole
     mass_ply = 37.*unit.amu
+    bonded_params = toy_polymer_bonded_params()
+
+    return sigma_ply, eps_ply, mass_ply, bonded_params
+
+def toy_polymer_bonded_params():
+    # parameters for coarse-grain polymer are taken from:
+    # Anthawale 2007
     r0 = 0.153*unit.nanometer 
     theta0 = 111*unit.degree
     kb = 334720.*unit.kilojoule_per_mole/(unit.nanometer**2)
     ka = 462.*unit.kilojoule_per_mole/(unit.radian**2)
     bonded_params = [r0, kb, theta0, ka]
 
-    return sigma_ply, eps_ply, mass_ply, bonded_params
+    return bonded_params
 
 def LJ_polymer_params():
     # parameters for coarse-grain polymer are taken from:
@@ -136,7 +143,7 @@ def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=False
     # bonded interactions
     bond_f = ET.SubElement(ff, "HarmonicBondForce")
     kb_units = unit.kilojoule_per_mole/(unit.nanometer**2)
-    r0, kb, theta0, ka = bonded_params
+    r0, kb, theta0, ka = toy_polymer_bonded_params()
     for n in range(n_beads):
         if n > 0:
             # add harmonic bonds
@@ -183,7 +190,8 @@ def polymer_in_solvent(n_beads, ply_potential, slv_potential, saveas="ff_cgs.xml
     eng_str = ""
     if slv_potential == "LJ":
         eps_slv = kwargs["eps_slv"]
-        rmin_slv = kwargs["rmin_slv"]
+        sigma_slv = kwargs["sigma_slv"]
+        mass_slv = kwargs["mass_slv"]
         eng_str += "areslv*eps_slv*(5*((rmin_slv/r)^12) - 6*((rmin_slv/r)^10)) + "
     else:
         eng_str += "areslv*CS(r) + "
@@ -191,7 +199,8 @@ def polymer_in_solvent(n_beads, ply_potential, slv_potential, saveas="ff_cgs.xml
 
     if ply_potential == "LJ":
         eps_ply = kwargs["eps_ply"]
-        rmin_ply = kwargs["rmin_ply"]
+        sigma_ply = kwargs["sigma_ply"]
+        mass_ply = kwargs["mass_ply"]
         eng_str += "(1 - areslv)*eps_ply*(5*((rmin_ply/r)^12) - 6*((rmin_ply/r)^10))"
     else:
         eng_str += "(1 - areslv)*WCA(r)"
@@ -250,7 +259,7 @@ def polymer_in_solvent(n_beads, ply_potential, slv_potential, saveas="ff_cgs.xml
         cs_f.text = cs_tab
 
     # add polymer only items
-    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types)
+    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, mass_ply)
 
     indent(ff)
     with open(saveas, "w") as fout:
@@ -267,6 +276,7 @@ def LJ_toy_polymer_LJ_water(n_beads, cutoff, solvent_params, saveas="ff_cgs.xml"
         Cutoff radius for long range interactions.
     
     """
+    ## DEPRECATED
 
     #sigma_slv, eps_slv, mass_slv = LJ_water_params()
     sigma_slv, eps_slv, mass_slv = solvent_params
@@ -337,6 +347,7 @@ def toy_polymer_LJ_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False)
         Cutoff radius for long range interactions.
     
     """
+    ## DEPRECATED
 
     sigma_slv, eps_slv, mass_slv = LJ_water_params()
     if soft_bonds:
@@ -410,6 +421,8 @@ def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False)
         Number of monomers.
     
     """
+
+    ## DEPRECATED
 
     eps_ww, sigma_ww, B, r0, Delta, mass_slv = CS_water_params()
     if soft_bonds:
