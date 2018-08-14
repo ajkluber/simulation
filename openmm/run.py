@@ -186,7 +186,7 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff,
     temperature = T*unit.kelvin
     collision_rate = 1.0/unit.picosecond
     timestep = 0.002*unit.picosecond
-    n_steps = 1000
+    n_steps = 10000
     nsteps_out = 100
 
     minimize = False
@@ -233,9 +233,7 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff,
         step=True, potentialEnergy=True, kineticEnergy=True, temperature=True,
         density=True, volume=True))
 
-    #simulation.reporters.append(sop.additional_reporters.ForceReporter(name + "_forces_{}.dat".format(traj_idx), nsteps_out))
-
-    # equilibrate at this pressure a little
+    # equilibrate at this pressure
     simulation.step(n_steps)
 
     simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
