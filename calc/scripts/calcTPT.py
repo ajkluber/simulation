@@ -17,26 +17,38 @@ if __name__ == "__main__":
     T = organized_temps.keys()
     T.sort()
 
+    if os.path.exists("Qtanh_0_05_profile/T_used.dat"):
+        with open("Qtanh_0_05_profile/T_used.dat", "r") as fout:
+            T_used = float(fout.read())
+    else:
+        if len(T) == 1:
+            with open("Qtanh_0_05_profile/T_used.dat", "w") as fout:
+                fout.write(str(T[0]))
+            T_used = T[0]
+        else:
+            dF_min_idx = np.argmin([ (float(open("T_{}_stab.dat".format(x)).read()))**2 for x in T ])
+            T_used = T[dF_min_idx] 
+
     # determine which temperature is closest to the folding temperature
     os.chdir(coordname + "_profile")
-    if not (os.path.exists("T_used.dat") and os.path.exists("minima.dat")):
-        dF_min_idx = np.argmin([ (float(open("T_{}_stab.dat".format(x)).read()))**2 for x in T ])
-        T_used = T[dF_min_idx] 
+    if os.path.exists("minima.dat"):
+        minima = np.loadtxt("minima.dat")
+        U = minima.min()
+        N = minima.max()
+    else:
         mid_bin = np.loadtxt("T_{}_mid_bin.dat".format(T_used))
         Fdata = np.loadtxt("T_{}_F.dat".format(T_used))
         xinterp, F = pmfutil.interpolate_profile(mid_bin, Fdata)
         minidx, maxidx = pmfutil.extrema_from_profile(xinterp, F)
+        print len(xinterp), minidx, xinterp[minidx]
+
+        # don't count minima at the ends of data 
+        minidx = np.array([ idx for idx in minidx if (10 < idx < (len(xinterp) - 10)) ])
+        maxidx = np.array([ idx for idx in maxidx if (10 < idx < (len(xinterp) - 10)) ])
         np.savetxt("minima.dat", xinterp[minidx])
-        with open("T_used.dat", "w") as fout:
-            fout.write(str(T_used))
+
         U = xinterp[minidx].min()
         N = xinterp[minidx].max()
-    else:
-        with open("T_used.dat", "r") as fin:
-            T_used = float(fin.read())
-        minima = np.loadtxt("minima.dat")
-        U = minima.min()
-        N = minima.max()
 
     os.chdir("..")
 
@@ -70,32 +82,39 @@ if __name__ == "__main__":
         all_transitsUN.append(transitsUN)
         all_transitsNU.append(transitsNU)
 
-    folding_time = np.concatenate([ all_dwellsU[i][:,1] + all_transitsUN[i][:,1] for i in range(len(all_dwellsU)) ])
-    unfolding_time = np.concatenate([ all_dwellsN[i][:,1] + all_transitsNU[i][:,1] for i in range(len(all_dwellsN)) ])
+    has_events_U = np.array([ len(all_dwellsU[i]) > 0 for i in range(len(all_dwellsU)) ])
+    has_events_N = np.array([ len(all_dwellsN[i]) > 0 for i in range(len(all_dwellsN)) ])
 
-    forward_transit_time = np.concatenate([ all_transitsUN[i][:,1] for i in range(len(all_transitsUN)) ])
-    backward_transit_time = np.concatenate([ all_transitsNU[i][:,1] for i in range(len(all_transitsNU)) ])
+    if np.any(has_events_U):
+        folding_time = np.concatenate([ all_dwellsU[i][:,1] + all_transitsUN[i][:,1] for i in range(len(all_dwellsU)) if has_events_U[i]])
+        forward_transit_time = np.concatenate([ all_transitsUN[i][:,1] for i in range(len(all_transitsUN)) if has_events_U[i]])
+    if np.any(has_events_N):
+        unfolding_time = np.concatenate([ all_dwellsN[i][:,1] + all_transitsNU[i][:,1] for i in range(len(all_dwellsN)) if has_events_N[i]])
+        backward_transit_time = np.concatenate([ all_transitsNU[i][:,1] for i in range(len(all_transitsNU)) if has_events_N[i]])
 
-    # Save transit times
-    if not os.path.exists("%s_transit_time" % coordname): 
-        os.mkdir("%s_transit_time" % coordname)
-    os.chdir("%s_transit_time" % coordname)
-    with open("forward_mean","w") as fout:
-        fout.write("%.2f" % np.mean(forward_transit_time))
-    with open("backward_mean","w") as fout:
-        fout.write("%.2f" % np.mean(backward_transit_time))
-    np.savetxt("forward_transit_times.dat", forward_transit_time, fmt="%5d")
-    np.savetxt("backward_transit_times.dat", backward_transit_time, fmt="%5d")
-    os.chdir("..")
+    tp_dir = "{}_transit_time".format(coordname)
+    tf_dir = "{}_folding_time".format(coordname)
+    if not os.path.exists(tp_dir): 
+        os.mkdir(tp_dir)
+    if not os.path.exists(tf_dir): 
+        os.mkdir(tf_dir)
 
-    # Save folding times
-    if not os.path.exists("%s_folding_time" % coordname): 
-        os.mkdir("%s_folding_time" % coordname)
-    os.chdir("%s_folding_time" % coordname)
-    with open("folding_mean","w") as fout:
-        fout.write("%.2f" % np.mean(folding_time))
-    with open("unfolding_mean","w") as fout:
-        fout.write("%.2f" % np.mean(unfolding_time))
-    np.savetxt("folding_times.dat", folding_time, fmt="%5d")
-    np.savetxt("unfolding_times.dat", unfolding_time, fmt="%5d")
-    os.chdir("..")
+    # If there are folding/unfolding events save transit and folding times
+    if np.any(has_events_U):
+        with open(tp_dir + "/forward_mean","w") as fout:
+            fout.write("%.2f" % np.mean(forward_transit_time))
+        np.savetxt(tp_dir + "/forward_transit_times.dat", forward_transit_time, fmt="%5d")
+
+        with open(tf_dir + "/folding_mean","w") as fout:
+            fout.write("%.2f" % np.mean(folding_time))
+        np.savetxt(tf_dir + "/folding_times.dat", folding_time, fmt="%5d")
+
+
+    if np.any(has_events_N):
+        with open(tp_dir + "/backward_mean","w") as fout:
+            fout.write("%.2f" % np.mean(backward_transit_time))
+        np.savetxt(tp_dir + "/backward_transit_times.dat", backward_transit_time, fmt="%5d")
+
+        with open(tf_dir + "/unfolding_mean","w") as fout:
+            fout.write("%.2f" % np.mean(unfolding_time))
+        np.savetxt(tf_dir + "/unfolding_times.dat", unfolding_time, fmt="%5d")

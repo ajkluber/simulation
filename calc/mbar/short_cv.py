@@ -21,13 +21,15 @@ if __name__ == "__main__":
 
     print "calculating energy"
     for i in range(len(tdirs)):
-        if not os.path.exists("{}/Etot.dat".format(tdirs[i])):
-            os.chdir(tdirs[i])
-            #calculate total potential energy
-            sb.call("g_energy_sbm -f ener.edr -o Etot -xvg none << HERE \n Potential \n HERE", shell=True)
+        os.chdir(tdirs[i])
+        if not os.path.exists("Etot.npy"):
+            if not os.path.exists("Etot.xvg"):
+                #calculate total potential energy
+                sb.call("g_energy_sbm -f ener.edr -o Etot -xvg none << HERE \n Potential \n HERE", shell=True)
+
             Etot = np.loadtxt("Etot.xvg",usecols=(1,))
             np.save("Etot.npy", Etot)
-            os.chdir("..")
+        os.chdir("..")
 
     heat_capacity_vs_T.calculate_Cv("temp_dirs", engfile="Etot.npy")
 

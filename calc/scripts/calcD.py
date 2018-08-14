@@ -1,110 +1,93 @@
 import os
+import glob
 import argparse
 import numpy as np
 
-from pyemma.coordinates.acf import acf
-
 import simulation.calc.transits as transits
+import simulation.calc.util as util
 
-def get_U_trajs(coordfile, n_native_pairs, min_len=100):
-    coordname = coordfile.split(".")[0]
+def calc_Kramers_tau_at_Tf(coordfile, n_native_pairs, dt, max_lag):
+    """Calculate Kramers theory folding time and diffusion coefficient"""
 
-    if os.path.exists("{}_profile/T_used.dat".format(coordname)):
-        os.chdir("{}_profile".format(coordname))
+    #import pdb 
+    #pdb.set_trace()
+    temp_dirs = glob.glob("T_*_1")
+    if os.path.exists("Qtanh_0_05_profile/T_used.dat"):
+        with open("Qtanh_0_05_profile/T_used.dat") as fin:
+            T_used = float(fin.read())
+    elif os.path.exists("T_used.dat"):
         with open("T_used.dat") as fin:
             T_used = float(fin.read())
-        minima = np.loadtxt("minima.dat")
-        U = minima.min()/n_native_pairs
-        N = minima.max()/n_native_pairs
-        os.chdir("..")
+    elif len(temp_dirs) > 0:
+        T_used = float(temp_dirs[0].split("_")[1])
     else:
-        raise IOError("No T_used.dat found.")
+        raise IOError("Missing input file T_used.dat")
 
-    xtrajs = [ np.load("T_{:.2f}_{}/{}".format(T_used, x, coordfile))/n_native_pairs for x in [1,2,3] ]
+    # get reaction coordinate in U state
+    x_U = transits.get_U_trajs(coordfile, n_native_pairs)
 
-    # get coordinate when dwelling in unfolded state.
-    x_U = []
-    for i in range(len(xtrajs)):
-        xtraj =  xtrajs[i]
-        dtraj = np.zeros(xtraj.shape[0], int)
-        dtraj[xtraj <= U] = 0
-        dtraj[xtraj >= N] = 2
-        dtraj[(xtraj > U) & (xtraj < N)] = 1
-        dwellsU, dwellsN, transitsUN, transitsNU = transits.partition_dtraj(dtraj, 0, 2)
+    # diffusion coefficient from the autocorrelation of Q in unfolded state.
+    # See Socci ''diffusive dynamics...''; Hummer ''Position-dependent diffusion...''
+    acf_xU, var_xU, tau_x, D_U, acf_std = transits.calculate_D_from_acf(x_U, dt, max_lag=max_lag)
 
-        for j in range(len(dwellsU)):
-            chunk_len = dwellsU[j,1] 
-            if chunk_len > min_len:
-                start_idx = dwellsU[j,0]
-                x_U.append(xtraj[start_idx: start_idx + chunk_len])
+    # calculate Kramer's mean-first passage time
+    tau_K_integral, tau_K_simple = transits.calculate_Kramers_tau(tau_x, D_U, n_native_pairs)
 
-    return x_U
-
-def calculate_D_from_acf(x_U, dt, max_lag=500):
-    """Calculate diffusion coefficient in unfolded state
-    
-    Parameters
-    ----------
-    x_U : list of arrays
-        Reaction coordinate trajectories in the unfolded state.
-    dt : float
-        Simulation timestep.
-    max_lag : int, opt.
-        Maximum lagtime to calculate autocorrelation function
-    """
-
-    # calculate autocorrelation function (acf) of reaction coordinate in 
-    # unfolded state
-    acf_xU = acf(x_U, max_lag=max_lag)
-
-    var_xU = np.var(np.concatenate(x_U))
-    tau_x = np.sum(acf_xU)*dt
-    D_U = var_xU/tau_x
-
-    return acf_xU[:,0], var_xU, tau_x, D_U
-
-def calculate_Kramers_tau(tau_x, D_U, n_native_pairs):
-    """Calculate diffusion coefficient in unfolded state"""
-    # calculate the Kramer's law mfpt doing a double integral over the
-    # free energy profile, assuming a constant diffusion coefficient
-    # using D in the unfolded state
-
-    os.chdir("Qtanh_0_05_profile")
-    with open("T_used.dat") as fin:
-        T_used = float(fin.read())
-
-    minima = np.loadtxt("minima.dat")
-    U = minima.min()/n_native_pairs
-    N = minima.max()/n_native_pairs
-
-    style_1 = "T_{:.2f}".format(T_used)
-    style_2 = "T_{:.1f}".format(T_used)
-    if os.path.exists(style_1 + "_F.dat"):
-        F = np.loadtxt(style_1 + "_F.dat")
-        x_mid_bin = np.loadtxt(style_1 + "_mid_bin.dat".format(T_used))/n_native_pairs
-    elif os.path.exists(style_2 + "_F.dat"):
-        F = np.loadtxt(style_2 + "_F.dat")
-        x_mid_bin = np.loadtxt(style_2 + "_mid_bin.dat".format(T_used))/n_native_pairs
-    else:
-        raise IOError("no free energy profile!")
-
+    if not os.path.exists("Qtanh_0_05_Kramers"):
+        os.mkdir("Qtanh_0_05_Kramers")
+    os.chdir("Qtanh_0_05_Kramers")
+    np.savetxt("T_{:.2f}_Kramers.dat".format(T_used), np.array([var_xU, tau_x, D_U, tau_K_integral, tau_K_simple]))
+    np.save("T_{:.2f}_acf.npy".format(T_used), acf_xU)
+    if len(acf_std) > 0:
+        np.save("T_{:.2f}_acf_std.npy".format(T_used), acf_std)
     os.chdir("..")
 
-    dx = x_mid_bin[1] - x_mid_bin[0]
+def calc_D_cold_temps(coordfile, n_native_pairs, dt, max_lag):
+    """Calculate diffusion coefficient"""
 
-    lower_idx = np.argmin((x_mid_bin - U)**2)
-    upper_idx = np.argmin((x_mid_bin - N)**2)
-    tau_K_integral = 0 
-    for q in range(lower_idx, upper_idx + 1):
-        for q_prime in range(len(F)):
-            tau_K_integral += dx*dx*np.exp(F[q] - F[q_prime])/D_U
+    organized_temps = util.get_organized_temps("cold_temps")
+    T = organized_temps.keys()
+    T.sort()
 
-    # use simplified formula that assumes curvature equal
-    TS_idx = np.argmax(F[lower_idx:upper_idx + 1])
-    dF_dagg = F[TS_idx] - F[lower_idx]
-    tau_K_simple = 2*np.pi*tau_x*np.exp(dF_dagg)
+    D_all = []
+    for i in range(len(T)):
+        xtrajs = [ np.load("{}/{}".format(tdir,coordfile))/float(n_native_pairs) for tdir in organized_temps[T[i]] ]
+        acf_xU, var_xU, tau_x, D_U, acf_std = transits.calculate_D_from_acf(xtrajs, dt, max_lag=max_lag)
+         
+        if not os.path.exists("Qtanh_0_05_Kramers"):
+            os.mkdir("Qtanh_0_05_Kramers")
+        os.chdir("Qtanh_0_05_Kramers")
+        np.savetxt("T_{:.2f}_D.dat".format(T[i]), np.array([var_xU, tau_x, D_U]))
+        np.save("T_{:.2f}_acf.npy".format(T[i]), acf_xU)
+        os.chdir("..")
 
-    return tau_K_integral, tau_K_simple
+        D_all.append(D_U)
+    return T, D_all
+
+
+def dummy():
+    import matplotlib.pyplot as plt
+
+    organized_temps = util.get_organized_temps("cold_temps")
+    T = organized_temps.keys()
+    T.sort()
+
+    D_all = []
+    acf_all = []
+    tau_all = []
+    for i in range(len(T)):
+        xtrajs = [ np.load("{}/{}".format(tdir,coordfile)) for tdir in organized_temps[T[i]] ]
+        acf_xU, var_xU, tau_x, D_U, acf_std = transits.calculate_D_from_acf(xtrajs, dt)
+        acf_all.append(acf_xU)
+        tau_all.append(tau_x)
+        D_all.append(D_U)
+
+        #plt.hist(np.concatenate(xtrajs), bins=100, label=str(T[i]))
+        #plt.figure()
+        #for n in range(len(xtrajs)):
+        #    plt.plot(xtrajs[n] + 50*n)
+    #plt.legend()
+    plt.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -112,35 +95,28 @@ if __name__ == "__main__":
             type=float, 
             help="Numer of native contacts")
 
+    parser.add_argument("--dt", 
+            type=float,
+            default=0.5,
+            help="Timestep size in ps.")
+
+    parser.add_argument("--max_lag", 
+            type=int,
+            default=500,
+            help="Maximum lagtime in frames.")
+
+    parser.add_argument("--cold_temps", 
+            action="store_true",
+            help="Calculate at colder temps")
+
     args = parser.parse_args()
     n_native_pairs = float(args.n_native_pairs)
-
-    dt = 0.5 # ps
-    kb = 0.0083145 # kJ / (mol K)
+    dt = args.dt
+    max_lag = args.max_lag
+    cold_temps = args.cold_temps
     coordfile = "Qtanh_0_05.npy"
-    with open("Qtanh_0_05_profile/T_used.dat") as fin:
-        T_used = float(fin.read())
 
-    # get reaction coordinate in U state
-    x_U = get_U_trajs(coordfile, n_native_pairs)
-
-    # diffusion coefficient from the autocorrelation of Q in unfolded state.
-    # See Socci ''diffusive dynamics...''; Hummer ''Position-dependent diffusion...''
-    acf_xU, var_xU, tau_x, D_U = calculate_D_from_acf(x_U, dt)
-
-    # calculate Kramer's mean-first passage time
-    tau_K_integral, tau_K_simple = calculate_Kramers_tau(tau_x, D_U, n_native_pairs)
-    #print tau_K_integral, tau_K_simple
-
-    #import matplotlib.pyplot as plt
-    #plt.plot(acf_xU)
-    #plt.xlabel(r"lagtime $\tau$")
-    #plt.ylabel(r"ACF $\langle x_{t}\cdot x_{t + \tau}\rangle$")
-    #plt.show()
-
-    if not os.path.exists("Qtanh_0_05_Kramers"):
-        os.mkdir("Qtanh_0_05_Kramers")
-    os.chdir("Qtanh_0_05_Kramers")
-    np.savetxt("T_{:.2f}_Kramers.dat".format(T_used), np.array([var_xU, tau_x, D_U, tau_K_integral, tau_K_simple]))
-    np.save("T_{:.2f}_acf.npy".format(T_used), acf_xU)
-    os.chdir("..")
+    if cold_temps:
+        T, D_all = calc_D_cold_temps(coordfile, n_native_pairs, dt, max_lag)
+    else:
+        calc_Kramers_tau_at_Tf(coordfile, n_native_pairs, dt, max_lag)

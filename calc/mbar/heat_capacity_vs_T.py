@@ -59,6 +59,7 @@ def save_cv_and_plot(beta, Cv, display=False, long=False):
     # save heat capacity curve and
     T = 1./(beta*KB)
 
+    # ignore endpoints
     mbar_Tf = T[np.argwhere(Cv == np.max(Cv))[0][0]]
     with open("Tfguess", "w") as fhandle:
         print "mbar estimates Tf as: {:.2f}".format(mbar_Tf)

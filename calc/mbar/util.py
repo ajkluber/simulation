@@ -52,13 +52,17 @@ def get_mbar_multi_temp(tempsfile, n_interpolate, n_extrapolate=0, engfile="Etot
 
     f_k = None
     # calculate mbar object
-    if os.path.exists("mbar/mbar.pkl"):
+    if os.path.exists("mbar/f_k.npy"):
         # loading the pre-calculated f_k speeds recalculation
-        with open("mbar/mbar.pkl", "rb") as fhandle:
-            mbar_pkl = pickle.load(fhandle)
-            pre_N_k = mbar_pkl["N_k"]
-            pre_f_k = mbar_pkl["f_k"]
-            pre_beta = mbar_pkl["beta"]
+        #with open("mbar/mbar.pkl", "rb") as fhandle:
+        #    mbar_pkl = pickle.load(fhandle)
+        #    pre_N_k = mbar_pkl["N_k"]
+        #    pre_f_k = mbar_pkl["f_k"]
+        #    pre_beta = mbar_pkl["beta"]
+        pre_N_k = np.load("mbar/N_k.npy")
+        pre_f_k = np.load("mbar/f_k.npy")
+        pre_beta = np.load("mbar/beta.npy")
+
         if len(beta) == len(pre_beta):
             if np.allclose(pre_beta, beta):
                 print "using precalculated f_k"
@@ -66,7 +70,7 @@ def get_mbar_multi_temp(tempsfile, n_interpolate, n_extrapolate=0, engfile="Etot
     print "solving mbar"
     mbar = pymbar.MBAR(u_kn, N_k, initial_f_k=f_k)
 
-    if not os.path.exists("mbar/mbar.pkl"):
+    if not os.path.exists("mbar/f_k.npy"):
         save_mbar_info(mbar, beta)
     return mbar, beta, E, u_kn, N_k
 
@@ -133,13 +137,17 @@ def save_mbar_info(mbar, beta):
         os.mkdir("mbar")
     os.chdir("mbar")
 
-    mbar_info = {}
-    mbar_info["f_k"] = mbar.f_k
-    mbar_info["N_k"] = mbar.N_k
-    mbar_info["beta"] = beta
+    np.save("f_k.npy", mbar.f_k)
+    np.save("N_k.npy", mbar.N_k)
+    np.save("beta.npy", beta)
 
-    with open("mbar.pkl", "wb") as fhandle:
-        pickle.dump(mbar_info, fhandle, protocol=pickle.HIGHEST_PROTOCOL)
+    #mbar_info = {}
+    #mbar_info["f_k"] = mbar.f_k
+    #mbar_info["N_k"] = mbar.N_k
+    #mbar_info["beta"] = beta
+
+    #with open("mbar.pkl", "wb") as fhandle:
+    #    pickle.dump(mbar_info, fhandle, protocol=pickle.HIGHEST_PROTOCOL)
 
     os.chdir("..")
 

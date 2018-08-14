@@ -23,17 +23,22 @@ def make_script_string(commands, jobname, gpus=False, partition="commons",
 
     slurm = "#!/bin/bash\n"
     slurm +="#SBATCH --job-name={}\n".format(jobname)
-    slurm +="#SBATCH --account=commons\n"
     if gpus:
         slurm +="#SBATCH --gres=gpu:{}\n".format(gpus)
     else:
         slurm +="#SBATCH --partition={}\n".format(partition)
+        if partition == "commons":
+            slurm +="#SBATCH --account={}\n".format(partition)
     slurm +="#SBATCH --nodes={}\n".format(nodes)
     slurm +="#SBATCH --ntasks-per-node={}\n".format(ntasks_per_node)
     slurm +="#SBATCH --time={}\n".format(walltime)
     slurm +="#SBATCH --export=ALL\n"
     if exclude_nodes:
-        slurm += "#SBATCH --exclude={}\n".format(exclude_nodes)
+        if type(exclude_nodes) == list:
+            exc_str = ":".join([ str(x) for x in exclude_nodes])
+        else:
+            exc_str = exclude_nodes 
+        slurm += "#SBATCH --exclude={}\n".format(exc_str)
     if exclusive:
         slurm +="#SBATCH --exclusive\n"
     if mem_per_cpu:
@@ -42,8 +47,12 @@ def make_script_string(commands, jobname, gpus=False, partition="commons",
         slurm +="#SBATCH --mail-user={}\n".format(email)
         if emailtype:
             slurm +="#SBATCH --mail-type={}\n".format(emailtype)
-    if dependency_type:
-        slurm += "#SBATCH --dependency={}:{}\n".format(dependency_type, dependency_ID)
+    if dependency_type and dependency_ID:
+        if type(dependency_ID) == list:
+            dep_str = ":".join([ str(x) for x in dependency_ID])
+        else:
+            dep_str = dependency_ID
+        slurm += "#SBATCH --dependency={}:{}\n".format(dependency_type, dep_str)
     if cd_slurm_dir:
         slurm +="cd $SLURM_SUBMIT_DIR\n"
     slurm += 'pwd\n'

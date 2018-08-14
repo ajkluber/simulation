@@ -26,9 +26,11 @@ def get_n_native_pairs(name):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("name")
-    args = parser.parse_args()
+    parser.add_argument("--skip_pmf", action="store_true")
 
+    args = parser.parse_args()
     name = args.name
+    skip_pmf = args.skip_pmf
 
     trajname = "traj.xtc"
     topname = "ref.pdb"
@@ -37,7 +39,9 @@ if __name__ == "__main__":
     recalculate = True
 
     # get directories
-    tempdirs = glob.glob("T_*_1/traj.xtc") + glob.glob("T_*_2/traj.xtc") + glob.glob("T_*_3/traj.xtc")
+    tempdirs = []
+    for i in range(1,6):
+        tempdirs += glob.glob("T_*_{}/traj.xtc".format(i))
     tempdirs = [ x.split("/traj.xtc")[0] for x in tempdirs ]
     organized_temps = util.get_organized_temps(temperature_dirs=tempdirs)
     T = organized_temps.keys()
@@ -79,26 +83,30 @@ if __name__ == "__main__":
             qtanh = []
             for n in range(len(trajfiles[i])):
                 traj = trajfiles[i][n]
-                qtanh_temp = np.array(qtanhsum_obs.map(md.load(traj, top=topfile)))
+                qtanh_temp = []
+                for chunk in md.iterload(traj, top=topfile):
+                    qtanh_temp.extend(qtanhsum_obs.map(chunk))
+                qtanh_temp = np.array(qtanh_temp)
+                #qtanh_temp = np.array(qtanhsum_obs.map(md.load(traj, top=topfile)))
                 np.save(os.path.dirname(traj) + "/" + coordfile, qtanh_temp)
                 qtanh.append(qtanh_temp)
 
-        # calculate free energy profile and state definitions
-        mid_bin, Fdata = pmfutil.pmf1D(np.concatenate(qtanh), bins=40)
-        #plt.plot(mid_bin, Fdata, label=str(T[i]))
+        if not skip_pmf:
+            # calculate free energy profile and state definitions
+            mid_bin, Fdata = pmfutil.pmf1D(np.concatenate(qtanh), bins=40)
+            #plt.plot(mid_bin, Fdata, label=str(T[i]))
 
-        if not os.path.exists(coordname + "_profile"):
-            os.mkdir(coordname + "_profile")
-        os.chdir(coordname + "_profile")
-        np.savetxt("T_{}_mid_bin.dat".format(T[i]), mid_bin)
-        np.savetxt("T_{}_F.dat".format(T[i]), Fdata)
+            if not os.path.exists(coordname + "_profile"):
+                os.mkdir(coordname + "_profile")
+            os.chdir(coordname + "_profile")
+            np.savetxt("T_{}_mid_bin.dat".format(T[i]), mid_bin)
+            np.savetxt("T_{}_F.dat".format(T[i]), Fdata)
 
-        xinterp, F = pmfutil.interpolate_profile(mid_bin, Fdata)
-        minidx, maxidx = pmfutil.extrema_from_profile(xinterp, F)
+            xinterp, F = pmfutil.interpolate_profile(mid_bin, Fdata)
+            minidx, maxidx = pmfutil.extrema_from_profile(xinterp, F)
 
-        F_fit = F(xinterp)
-        with open("T_{}_stab.dat".format(T[i]), "w") as fout:
-            fout.write(str(F_fit[minidx[1]] - F_fit[minidx[0]]))
-         
-        os.chdir("..")
+            F_fit = F(xinterp)
+            with open("T_{}_stab.dat".format(T[i]), "w") as fout:
+                fout.write(str(F_fit[minidx[1]] - F_fit[minidx[0]]))
+            os.chdir("..")
 
