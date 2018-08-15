@@ -51,8 +51,9 @@ def production(topology, positions, ensemble, temperature, timestep,
     else:
         simulation = app.Simulation(topology, system, integrator)
 
-    # set initial positions 
+    # set initial positions and box dimensions
     simulation.context.setPositions(positions)
+    #simulation.context.setPeriodicBoxVectors()
 
     if minimize:
         simulation.minimizeEnergy()
@@ -79,6 +80,9 @@ def production(topology, positions, ensemble, temperature, timestep,
     # run simulation!
     simulation.step(n_steps)
 
+    # make sure to save the periodic box dimension in case they changed.
+    state = simulation.context.getState()
+    topology.setPeriodicBoxVectors(state.getPeriodicBoxVectors())
     simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
     simulation.step(1)
 
@@ -146,6 +150,9 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
         # equilibrate at this pressure a little
         simulation.step(n_steps)
 
+        # make sure to save the periodic box dimension in case they changed.
+        state = simulation.context.getState()
+        topology.setPeriodicBoxVectors(state.getPeriodicBoxVectors())
         simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
         simulation.step(1)
 
@@ -237,6 +244,9 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff,
     # equilibrate at this pressure
     simulation.step(n_steps)
 
+    # make sure to save the periodic box dimension in case they changed.
+    state = simulation.context.getState()
+    topology.setPeriodicBoxVectors(state.getPeriodicBoxVectors())
     simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
     simulation.step(1)
 
