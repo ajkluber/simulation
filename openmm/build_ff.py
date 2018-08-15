@@ -483,6 +483,73 @@ def toy_polymer_CS_water(n_beads, cutoff, saveas="ff_cgs.xml", soft_bonds=False)
     with open(saveas, "w") as fout:
         fout.write(ET.tostring(ff))
 
+def many_body_toy_system(n_beads, cutoff, saveas="ff_ex.xml"):
+    """Build xml forcefield file for toy system
+    
+    Parameters
+    ----------
+    n_beads : int
+        Number of monomers.
+    
+    """
+
+    #TODO
+
+    sigma = 0.3*unit.nanometer
+    eps = 0.5*unit.kilojoule_per_mole
+    mass = 37.*unit.amu
+    r0 = 0.153*unit.nanometer 
+
+    rmin = 0.2*unit.nanometer
+    rmax = 1.5*cutoff
+
+    # forcefield xml tags
+    ff = ET.Element("ForceField")
+    atm_types = ET.SubElement(ff, "AtomTypes")
+    res_types = ET.SubElement(ff, "Residues")
+
+    # solvent parameters
+    add_element_traits(ET.SubElement(ET.SubElement(res_types, "Residue",
+        attrib={"name":"SLV"}), "Atom"), {"name":"CS", "type":"Solv"})
+
+    # add custom nonbonded interactions that are:
+    #  1) Core-softened (CS) potential between solvent atoms
+    #  2) Weeks-Chandler-Andersen (WCA) repulsive for monomer-monomer and
+    #  monomer-solvent
+    cust_nb_f = ET.SubElement(ff, "CustomNonbondedForce",
+            {"energy":"areslv*CS(r) + (1 - areslv)*WCA(r); areslv=step((flavor1 + flavor2) - 1.5)", 
+                "bondCutoff":"3"})
+
+    # each particle class (solvent=CS, polymer=PL) has a 'flavor'. Flavors
+    # determine the interaction
+    add_element_traits(ET.SubElement(cust_nb_f, "PerParticleParameter"), {"name":"flavor"})
+    add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"CS", "flavor":"1"})
+    add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"PL", "flavor":"0"})
+
+    # tabulated WCA potential
+    wca_f = ET.SubElement(cust_nb_f, "Function")
+    add_element_traits(wca_f, {"name":"WCA", "type":"Continuous1D",
+        "min":str(rmin/unit.nanometer), "max":str(rmax/unit.nanometer)})
+
+    wca_tab = tabulated.wca_table(sigma_ply, eps_ply, rmin, rmax)
+    wca_f.text = wca_tab
+
+    # tabulated core-softened potential
+    cs_f = ET.SubElement(cust_nb_f, "Function")
+    add_element_traits(cs_f, {"name":"CS", "type":"Continuous1D",
+        "min":str(rmin/unit.nanometer), "max":str(rmax/unit.nanometer)})
+
+    r_switch = cutoff - 0.11*unit.nanometer
+    r_cut = cutoff - 0.01*unit.nanometer
+    cs_tab = tabulated.Chaimovich_table(eps_ww, sigma_ww, B, r0, Delta, rmin, rmax, r_switch, r_cut, switch=True)
+    cs_f.text = cs_tab
+
+    # add polymer only items
+    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=soft_bonds)
+
+    indent(ff)
+    with open(saveas, "w") as fout:
+        fout.write(ET.tostring(ff))
 
 def read_polymer_params(n_beads, s_frames, bonds, angles, non_bond_wca, non_bond_gaussian, method):
 
