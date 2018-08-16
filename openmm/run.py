@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 import simtk.unit as unit
@@ -5,6 +6,7 @@ import simtk.openmm as omm
 import simtk.openmm.app as app
 
 import util
+import additional_reporters
 
 def production(topology, positions, ensemble, temperature, timestep,
         collision_rate, pressure, n_steps, nsteps_out, ff_filename,
@@ -86,26 +88,25 @@ def production(topology, positions, ensemble, temperature, timestep,
     simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
     simulation.step(1)
 
-def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cutoff, r_switch, refT=300):
+def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cutoff, r_switch, refT=300, save_forces=False):
     """Adaptively change pressure to reach target volume (density)"""
 
-    traj_idx = 1
     temperature = refT*unit.kelvin
     collision_rate = 1.0/unit.picosecond
     timestep = 0.002*unit.picosecond
-    n_steps = 1000
+    n_steps = 5000
     nsteps_out = 100
 
     minimize = False
     dynamics = "Langevin"
     ensemble = "NPT"
 
-    # get initial configuration
-    pdb = app.PDBFile(name + "_min.pdb")
-    topology = pdb.topology
-    positions = pdb.positions
+    traj_idx = 1
+    all_files_exist = lambda idx: np.all([os.path.exists(x) for x in util.output_filenames(name, idx)])
+    while all_files_exist(traj_idx):
+        traj_idx += 1
 
-    templates = util.template_dict(topology, n_beads)
+    # get initial configuration
 
     properties = {'DeviceIndex': '0'}
     platform = omm.Platform.getPlatformByName('CUDA') 
@@ -115,10 +116,15 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
     all_P = []
     all_V = []
     for i in range(200):
-        min_name = name + "_min_{}.pdb".format(traj_idx)
-        log_name = name + "_{}.log".format(traj_idx)
-        traj_name = name + "_traj_{}.dcd".format(traj_idx)
-        lastframe_name = name + "_fin_{}.pdb".format(traj_idx)
+        if i == 0:
+            pdb = app.PDBFile(name + "_min.pdb")
+        else:
+            pdb = app.PDBFile(name + "_fin_{}.pdb".format(traj_idx - 1))
+        topology = pdb.topology
+        positions = pdb.positions
+
+        templates = util.template_dict(topology, n_beads)
+        min_name, log_name, traj_name, lastframe_name = util.output_filenames(name, traj_idx)
 
         forcefield = app.ForceField(ff_filename)
 
@@ -145,7 +151,8 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
             step=True, potentialEnergy=True, kineticEnergy=True, temperature=True,
             density=True, volume=True))
 
-        #simulation.reporters.append(sop.additional_reporters.ForceReporter(name + "_forces_{}.dat".format(traj_idx), nsteps_out))
+        if save_forces:
+            simulation.reporters.append(additional_reporters.ForceReporter(name + "_forces_{}.dat".format(traj_idx), nsteps_out))
 
         # equilibrate at this pressure a little
         simulation.step(n_steps)
@@ -161,10 +168,18 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
         all_P.append(new_pressure.value_in_unit(unit.atmosphere))
         all_V.append(box_volume[-1])
 
-        system.removeForce(4)
-        factor = (box_volume[-1]/target_volume)
+        perc_err = np.abs((target_volume - box_volume[-1])/target_volume)*100.
+        if perc_err <= 1 and i > 10:
+            break
+        else:
+            factor = (box_volume[-1]/target_volume)
+            if box_volume[-1] > target_volume:
+                factor = np.min([1.05, factor])
+            else:
+                factor = np.max([0.95, factor])
 
-        print i +1, new_pressure, box_volume[-1], factor
+        system.removeForce(4)
+        print traj_idx, new_pressure, box_volume[-1], factor
 
         old_pressure = new_pressure
         new_pressure = factor*old_pressure
