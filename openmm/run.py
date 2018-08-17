@@ -8,6 +8,9 @@ import simtk.openmm.app as app
 import util
 import additional_reporters
 
+global energy_minimization_tol
+energy_minimization_tol = unit.Quantity(value=10., unit=unit.kilojoule_per_mole)
+
 def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cutoff, r_switch, refT=300, save_forces=False):
     """Adaptively change pressure to reach target volume (density)"""
 
@@ -66,7 +69,7 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
         simulation = app.Simulation(topology, system, integrator, platform, properties)
         simulation.context.setPositions(positions)
 
-        simulation.minimizeEnergy()
+        simulation.minimizeEnergy(tolerance=energy_minimization_tol)
 
         simulation.reporters.append(app.DCDReporter(traj_name, nsteps_out))
         simulation.reporters.append(app.StateDataReporter(log_name, nsteps_out,
@@ -172,7 +175,7 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff,
 
     simulation = app.Simulation(topology, system, integrator, platform, properties)
     simulation.context.setPositions(positions)
-    simulation.minimizeEnergy()
+    simulation.minimizeEnergy(tolerance=energy_minimization_tol)
 
     simulation.reporters.append(app.DCDReporter(traj_name, nsteps_out))
     simulation.reporters.append(app.StateDataReporter(log_name, nsteps_out,
@@ -238,7 +241,7 @@ def production(topology, positions, ensemble, temperature, timestep,
     #simulation.context.setPeriodicBoxVectors()
 
     if minimize:
-        simulation.minimizeEnergy()
+        simulation.minimizeEnergy(tolerance=energy_minimization_tol)
 
     # initial equilibration
     simulation.step(n_equil_steps)
