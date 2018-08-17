@@ -1,4 +1,5 @@
 import os
+import shutil
 import numpy as np
 
 import simtk.unit as unit
@@ -11,7 +12,8 @@ import additional_reporters
 global energy_minimization_tol
 energy_minimization_tol = unit.Quantity(value=10., unit=unit.kilojoule_per_mole)
 
-def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cutoff, r_switch, refT=300, save_forces=False, cuda=False):
+def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
+        cutoff, r_switch, refT=300, saveas="press_equil.pdb", save_forces=False, cuda=False):
     """Adaptively change pressure to reach target volume (density)"""
 
     temperature = refT*unit.kelvin
@@ -34,6 +36,9 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
     if cuda:
         properties = {'DeviceIndex': '0'}
         platform = omm.Platform.getPlatformByName('CUDA') 
+
+    print "Target: ", target_volume, " (nm^3)"
+    print "Step    Pressure   Volume   Factor: "
 
     # run at this pressure then adjust.
     new_pressure = 4000*unit.atmosphere    # starting pressure
@@ -94,21 +99,28 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
 
         # update pressure
         box_volume = np.loadtxt(log_name, delimiter=",", usecols=(4,))
+        density = np.loadtxt(log_name, delimiter=",", usecols=(5,))[-1]
         all_P.append(new_pressure.value_in_unit(unit.atmosphere))
         all_V.append(box_volume[-1])
 
-        perc_err = np.abs((target_volume - box_volume[-1])/target_volume)*100.
-        if perc_err <= 1 and i > 10:
-            break
-        else:
-            factor = (box_volume[-1]/target_volume)
-            if box_volume[-1] > target_volume:
-                factor = np.min([1.05, factor])
+        perc_err_den = 100.*np.abs(1.0 - density)
+        perc_err_V = np.abs((target_volume - box_volume[-1])/target_volume)*100.
+        factor = (box_volume[-1]/target_volume)
+        if (i > 10):
+            if perc_err_V <= 5 or perc_err_den <= 10:
+                print "{:<5d} {:>10.2f} {:>10.2f} {:>5.2f}  DONE".format(traj_idx, float(new_pressure/unit.atmosphere), box_volume[-1], factor)
+                #shutil.copy(lastframe_name, name + "_press_equil.pdb")
+                shutil.copy(lastframe_name, saveas)
+                break
             else:
-                factor = np.max([0.95, factor])
+                pass
+                #if box_volume[-1] > target_volume:
+                #    factor = np.min([1.05, factor])
+                #else:
+                #    factor = np.max([0.95, factor])
 
         system.removeForce(4)
-        print traj_idx, new_pressure, box_volume[-1], factor
+        print "{:<5d} {:>10.2f} {:>10.2f} {:>5.2f}".format(traj_idx, float(new_pressure/unit.atmosphere), box_volume[-1], factor)
 
         old_pressure = new_pressure
         new_pressure = factor*old_pressure
@@ -118,20 +130,20 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
     all_P = np.array(all_P)
     all_V = np.array(all_V)
 
-    np.save("pressure_in_atm_vs_step.npy", all_P)
-    np.save("volume_in_nm3_vs_step.npy", all_V)
+    np.save("pressure_in_atm_vs_step.npy", all_P[:-1])
+    np.save("volume_in_nm3_vs_step.npy", all_V[:-1])
     
-    N = len(all_P)
-    avgV = np.mean(all_V[N/2:]) 
-    stdV = np.std(all_V[N/2:]) 
-    avgP = np.mean(all_P[N/2:]) 
-    stdP = np.std(all_P[N/2:]) 
+    N = len(all_P) - 1
+    avgV = np.mean(all_V[N/2:-1]) 
+    stdV = np.std(all_V[N/2:-1]) 
+    avgP = np.mean(all_P[N/2:-1]) 
+    stdP = np.std(all_P[N/2:-1]) 
 
     np.savetxt("avgV.dat", np.array([avgV, stdV]))
     np.savetxt("pressure.dat", np.array([avgP, stdP]))
     np.savetxt("temperature.dat", np.array([refT]))
 
-def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff, r_switch, cuda=False):
+def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff, r_switch, saveas="vol_equil.pdb", cuda=False):
     """Adaptively change pressure to reach target volume (density)"""
 
     traj_idx = 1
@@ -141,7 +153,6 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff,
     n_steps = 10000
     nsteps_out = 100
 
-    minimize = True
     dynamics = "Langevin"
     ensemble = "NPT"
 
@@ -198,6 +209,8 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff,
     topology.setPeriodicBoxVectors(state.getPeriodicBoxVectors())
     simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
     simulation.step(1)
+
+    shutil.copy(lastframe_name, saveas)
 
 def production(topology, positions, ensemble, temperature, timestep,
         collision_rate, pressure, n_steps, nsteps_out, ff_filename,
