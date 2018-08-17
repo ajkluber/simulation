@@ -88,7 +88,7 @@ def production(topology, positions, ensemble, temperature, timestep,
     simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
     simulation.step(1)
 
-def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cutoff, r_switch, refT=300, save_forces=False):
+def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cutoff, r_switch, refT=300, save_forces=False, cuda=False):
     """Adaptively change pressure to reach target volume (density)"""
 
     temperature = refT*unit.kelvin
@@ -108,8 +108,9 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
 
     # get initial configuration
 
-    properties = {'DeviceIndex': '0'}
-    platform = omm.Platform.getPlatformByName('CUDA') 
+    if cuda:
+        properties = {'DeviceIndex': '0'}
+        platform = omm.Platform.getPlatformByName('CUDA') 
 
     # run at this pressure then adjust.
     new_pressure = 4000*unit.atmosphere    # starting pressure
@@ -143,7 +144,10 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
 
         system.addForce(omm.MonteCarloBarostat(new_pressure, temperature))
 
-        simulation = app.Simulation(topology, system, integrator, platform, properties)
+        if cuda:
+            simulation = app.Simulation(topology, system, integrator, platform, properties)
+        else:
+            simulation = app.Simulation(topology, system, integrator)
         simulation.context.setPositions(positions)
 
         simulation.reporters.append(app.DCDReporter(traj_name, nsteps_out))
@@ -202,7 +206,7 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads, cut
     np.savetxt("pressure.dat", np.array([avgP, stdP]))
     np.savetxt("temperature.dat", np.array([refT]))
 
-def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff, r_switch):
+def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff, r_switch, cuda=False):
     """Adaptively change pressure to reach target volume (density)"""
 
     traj_idx = 1
@@ -223,8 +227,9 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff,
 
     templates = util.template_dict(topology, n_beads)
 
-    properties = {'DeviceIndex': '0'}
-    platform = omm.Platform.getPlatformByName('CUDA') 
+    if cuda:
+        properties = {'DeviceIndex': '0'}
+        platform = omm.Platform.getPlatformByName('CUDA') 
 
     min_name = name + "_min_{}.pdb".format(traj_idx)
     log_name = name + "_{}.log".format(traj_idx)
@@ -248,7 +253,10 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff,
 
     system.addForce(omm.MonteCarloBarostat(pressure, temperature))
 
-    simulation = app.Simulation(topology, system, integrator, platform, properties)
+    if cuda:
+        simulation = app.Simulation(topology, system, integrator, platform, properties)
+    else:
+        simulation = app.Simulation(topology, system, integrator)
     simulation.context.setPositions(positions)
 
     simulation.reporters.append(app.DCDReporter(traj_name, nsteps_out))
