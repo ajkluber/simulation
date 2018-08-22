@@ -22,8 +22,8 @@ def output_filenames(name, traj_idx):
     min_name = name + "_min_{}.pdb".format(traj_idx)
     log_name = name + "_{}.log".format(traj_idx)
     traj_name = name + "_traj_{}.dcd".format(traj_idx)
-    lastframe_name = name + "_fin_{}.pdb".format(traj_idx)
-    return min_name, log_name, traj_name, lastframe_name
+    final_state_name = name + "_final_state_{}.xml".format(traj_idx)
+    return min_name, log_name, traj_name, final_state_name 
 
 def get_starting_coordinates(name, traj_idx):
 
@@ -31,30 +31,39 @@ def get_starting_coordinates(name, traj_idx):
     if traj_idx == 1:
         print "starting new simulation from: " + name + "_min.pdb"
         pdb = app.PDBFile(name + "_min.pdb")
+        topology = pdb.topology
+        positions = pdb.positions
         minimize = True
     else:
         minimize = False
-        if os.path.exists(name + "_fin_{}.pdb".format(traj_idx - 1)):
-            print "extending from " + name + "_fin_{}.pdb".format(traj_idx - 1)
-            pdb = app.PDBFile(name + "_fin_{}.pdb".format(traj_idx - 1))
+        #omm.
+        prev_state_name = name + "_final_state_{}.xml".format(traj_idx - 1)
+        if os.path.exists(prev_state_name):
+            print "extending from " + prev_state_name
+            pdb = app.PDBFile(name + "_min.pdb")
+            topology = pdb.topology
+
+            state = omm.XmlSerializer().deserialize(prev_state_name)
+            positions = state.getPositions()
         elif os.path.exists(name + "_traj_{}.dcd".format(traj_idx - 1)) and os.path.exists(name + "_min.pdb"):
             print "extending from final frame of " + name + "_traj_{}.pdb".format(traj_idx - 1)
+            # How to extend from state file if crash?
             import mdtraj as md
             traj = md.load(name + "_traj_{}.dcd".format(traj_idx - 1), top=name + "_min.pdb")
             traj[-1].save_pdb(name + "_fin_{}.pdb".format(traj_idx - 1))
             pdb = app.PDBFile(name + "_fin_{}.pdb".format(traj_idx - 1))
+            topology = pdb.topology
+            positions = pdb.positions
         else:
             raise IOError("No structure to start from!")
 
-    topology = pdb.topology
-    positions = pdb.positions
     return topology, positions
 
 def add_elements(mass_slv, mass_ply):
     # we define our coarse-grain beads as additional elements in OpenMM.
     # should only be called once!
-    app.element.solvent = app.element.Element(201, "Solvent", "Sv", mass_slv)
     app.element.polymer = app.element.Element(200, "Polymer", "Pl", mass_ply)
+    app.element.solvent = app.element.Element(201, "Solvent", "Sv", mass_slv)
 
 
 def LJslv_params(eps_slv_mag):
