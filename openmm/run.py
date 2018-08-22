@@ -1,6 +1,7 @@
 import os
 import shutil
 import numpy as np
+import xml.etree.ElementTree as ET
 
 import simtk.unit as unit
 import simtk.openmm as omm
@@ -13,7 +14,7 @@ global energy_minimization_tol
 energy_minimization_tol = unit.Quantity(value=10., unit=unit.kilojoule_per_mole)
 
 def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
-        cutoff, r_switch, refT=300, saveas="press_equil.pdb", save_forces=False, cuda=False, p0=4000.):
+        cutoff, r_switch, refT=300, save_forces=False, cuda=False, p0=4000.):
     """Adaptively change pressure to reach target volume (density)"""
 
     temperature = refT*unit.kelvin
@@ -26,8 +27,6 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
     dynamics = "Langevin"
     ensemble = "NPT"
 
-    util.add_elements(18*unit.amu, 37*unit.amu)
-
     traj_idx = 1
     all_files_exist = lambda idx: np.all([os.path.exists(x) for x in util.output_filenames(name, idx)])
     while all_files_exist(traj_idx):
@@ -39,7 +38,7 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
     positions = pdb.positions
 
     templates = util.template_dict(topology, n_beads)
-    min_name, log_name, traj_name, lastframe_name = util.output_filenames(name, traj_idx)
+    min_name, log_name, traj_name, final_state_name = util.output_filenames(name, traj_idx)
 
     forcefield = app.ForceField(ff_filename)
 
@@ -78,9 +77,7 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
         step=True, potentialEnergy=True, kineticEnergy=True, temperature=True,
         density=True, volume=True))
 
-    save_forces = False
-    if save_forces:
-        simulation.reporters.append(additional_reporters.ForceReporter(name + "_forces_{}.dat".format(traj_idx), nsteps_out))
+    simulation.reporters.append(additional_reporters.ForceReporter(name + "_forces_{}.dat".format(traj_idx), nsteps_out))
 
     print "Target: ", target_volume, " (nm^3)"
     print "Step    Pressure   Volume   Factor: "
@@ -99,14 +96,13 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
         perc_err_V = np.abs((target_volume - box_volume)/target_volume)*100.
         factor = (box_volume/target_volume)
         if (i > 10):
-            if perc_err_V <= 10:
+            if perc_err_V <= 5:
                 print "{:<5d} {:>10.2f} {:>10.2f} {:>5.7f}  DONE".format(i + 1, P, box_volume, factor)
-                # save last frame with new box dimensions
+                simulation.saveState("final_state.xml")
                 state = simulation.context.getState()
-                topology.setPeriodicBoxVectors(state.getPeriodicBoxVectors())
-                simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
-                simulation.step(1)
-                shutil.copy(lastframe_name, saveas)
+                box_vecs = state.getPeriodicBoxVectors()
+                box_dims_in_nm = np.array([ box_vecs[x][x]/unit.nanometer for x in range(3) ])
+                np.save("box_dims_nm.npy", box_dims_in_nm)
                 break
 
         # update pressure
@@ -121,14 +117,16 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
     np.save("pressure_in_atm_vs_step.npy", all_P)
     np.save("volume_in_nm3_vs_step.npy", all_V)
 
-def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff, r_switch, saveas="vol_equil.pdb", cuda=False):
+def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, refT, T,
+        cutoff, r_switch, prev_state_file, cuda=False):
     """Adaptively change pressure to reach target volume (density)"""
 
     traj_idx = 1
-    temperature = T*unit.kelvin
+    starting_temperature = refT*unit.kelvin
+
     collision_rate = 1.0/unit.picosecond
     timestep = 0.002*unit.picosecond
-    n_steps = 10000
+    n_steps = 1000
     nsteps_out = 100
 
     dynamics = "Langevin"
@@ -148,7 +146,6 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff,
     min_name = name + "_min_{}.pdb".format(traj_idx)
     log_name = name + "_{}.log".format(traj_idx)
     traj_name = name + "_traj_{}.dcd".format(traj_idx)
-    lastframe_name = name + "_fin_{}.pdb".format(traj_idx)
 
     forcefield = app.ForceField(ff_filename)
 
@@ -156,46 +153,71 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, T, cutoff,
             nonbondedMethod=app.CutoffPeriodic, nonbondedCutoff=cutoff,
             ignoreExternalBonds=True, residueTemplates=templates)
 
-    nb_force = system.getForce(0) # assume nonbonded interactions are first force
-    nb_force.setUseSwitchingFunction(True)
-    if r_switch == 0:
-        raise IOError("Set switching distance")
-    else:
-        nb_force.setSwitchingDistance(r_switch/unit.nanometer)
+    # set switching function on nonbonded forces
+    for i in range(system.getNumForces()):
+        force = system.getForce(i) 
+        if force.__repr__().find("NonbondedForce") > -1:
+            force.setUseSwitchingFunction(True)
+            if r_switch == 0:
+                raise IOError("Set switching distance")
+            else:
+                force.setSwitchingDistance(r_switch/unit.nanometer)
 
-    integrator = omm.LangevinIntegrator(temperature, collision_rate, timestep)
+    integrator = omm.LangevinIntegrator(starting_temperature, collision_rate, timestep)
 
-    system.addForce(omm.MonteCarloBarostat(pressure, temperature))
+    barostat = omm.MonteCarloBarostat(pressure, starting_temperature)
+    system.addForce(barostat)
 
     if cuda:
         simulation = app.Simulation(topology, system, integrator, platform, properties)
     else:
         simulation = app.Simulation(topology, system, integrator)
-    simulation.context.setPositions(positions)
-    simulation.minimizeEnergy(tolerance=energy_minimization_tol)
+
+    simulation.loadState(prev_state_file)
 
     simulation.reporters.append(app.DCDReporter(traj_name, nsteps_out))
     simulation.reporters.append(app.StateDataReporter(log_name, nsteps_out,
         step=True, potentialEnergy=True, kineticEnergy=True, temperature=True,
         density=True, volume=True))
 
-    # equilibrate at this pressure
+    simulation.reporters.append(additional_reporters.ForceReporter(name + "_forces_{}.dat".format(traj_idx), nsteps_out))
+
+    currT = starting_temperature 
+    DeltaT = (T - refT)/100.
+    for i in range(100):
+        # equilibrate at this temperature pressure
+        simulation.step(n_steps)
+
+        # updte temperature closer to desired temperature
+        currT += DeltaT*unit.kelvin
+        simulation.integrator.setTemperature(currT)
+        simulation.context.setParameter(barostat.Temperature(), currT)
+
     simulation.step(n_steps)
 
-    # make sure to save the periodic box dimension in case they changed.
-    state = simulation.context.getState()
-    topology.setPeriodicBoxVectors(state.getPeriodicBoxVectors())
-    simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
-    simulation.step(1)
+    # save final state of simulation.
+    # includes positions, vels, box vectors.
+    simulation.saveState("final_state_npt.xml")
 
-    shutil.copy(lastframe_name, saveas)
+    # save state without pressure info for NVT sims
+    tree = ET.parse("final_state_npt.xml")
+    for elem in tree.getroot():
+        if elem.tag == "Parameters":
+            elem.attrib.pop("MonteCarloPressure")
+            elem.attrib.pop("MonteCarloTemperature")
+    tree.write("final_state_nvt.xml", xml_declaration=True)
+    
+    state = simulation.context.getState()
+    box_vecs = state.getPeriodicBoxVectors()
+    box_dims_in_nm = np.array([ box_vecs[x][x]/unit.nanometer for x in range(3) ])
+    np.save("box_dims_nm.npy", box_dims_in_nm)
 
 def production(topology, positions, ensemble, temperature, timestep,
         collision_rate, pressure, n_steps, nsteps_out, ff_filename,
-        firstframe_name, log_name, traj_name, lastframe_name, cutoff,
+        firstframe_name, log_name, traj_name, final_state_name, cutoff,
         templates, n_equil_steps=1000, nonbondedMethod=app.CutoffPeriodic,
-        use_switch=False, r_switch=0, minimize=False, cuda=False,
-        gpu_idxs=False, more_reporters=[], dynamics="Langevin"): 
+        prev_state_name=None, use_switch=False, r_switch=0, minimize=False,
+        cuda=False, gpu_idxs=False, more_reporters=[], dynamics="Langevin"): 
 
     # load forcefield from xml file
     forcefield = app.ForceField(ff_filename)
@@ -205,12 +227,15 @@ def production(topology, positions, ensemble, temperature, timestep,
             ignoreExternalBonds=True, residueTemplates=templates)
 
     if use_switch:
-        nb_force = system.getForce(0) # assume nonbonded interactions are first force
-        nb_force.setUseSwitchingFunction(True)
-        if r_switch == 0:
-            raise IOError("Set switching distance")
-        else:
-            nb_force.setSwitchingDistance(r_switch/unit.nanometer)
+        # set switching function on nonbonded forces
+        for i in range(system.getNumForces()):
+            force = system.getForce(i) 
+            if force.__repr__().find("NonbondedForce") > -1:
+                force.setUseSwitchingFunction(True)
+                if r_switch == 0:
+                    raise IOError("Set switching distance")
+                else:
+                    force.setSwitchingDistance(r_switch/unit.nanometer)
             
     if ensemble == "NVE": 
         integrator = omm.VerletIntegrator(timestep)
@@ -235,9 +260,12 @@ def production(topology, positions, ensemble, temperature, timestep,
     else:
         simulation = app.Simulation(topology, system, integrator)
 
-    # set initial positions and box dimensions
-    simulation.context.setPositions(positions)
-    #simulation.context.setPeriodicBoxVectors()
+    if prev_state_name is None:
+        # set initial positions and box dimensions
+        simulation.context.setPositions(positions)
+        #simulation.context.setPeriodicBoxVectors()
+    else:
+        simulation.loadState(prev_state_name)
 
     if minimize:
         simulation.minimizeEnergy(tolerance=energy_minimization_tol)
@@ -265,140 +293,9 @@ def production(topology, positions, ensemble, temperature, timestep,
     simulation.step(n_steps)
 
     # make sure to save the periodic box dimension in case they changed.
-    state = simulation.context.getState()
-    topology.setPeriodicBoxVectors(state.getPeriodicBoxVectors())
-    simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
-    simulation.step(1)
+    simulation.saveState(final_state_name)
 
 
 if __name__ == "__main__":
     # sandbox
-
-    refT = 300
-    saveas = "c50_press_equil.pdb"
-    name = "c50"
-    n_beads = 50
-    cuda = True
-    target_volume = 11.0**3
-
-    cutoff = 0.9*unit.nanometers
-    vdwCutoff = 0.9*unit.nanometers
-    r_switch = 0.7*unit.nanometers
-
-    ff_filename = "ff_c50.xml"
-
-    temperature = refT*unit.kelvin
-    collision_rate = 1.0/unit.picosecond
-    timestep = 0.002*unit.picosecond
-    n_steps = 5000
-    nsteps_out = 100
-    pressure = 4000*unit.atmosphere    # starting pressure
-
-    minimize = True
-    dynamics = "Langevin"
-    ensemble = "NPT"
-
-    util.add_elements(18*unit.amu, 37*unit.amu)
-
-    traj_idx = 1
-    all_files_exist = lambda idx: np.all([os.path.exists(x) for x in util.output_filenames(name, idx)])
-    while all_files_exist(traj_idx):
-        traj_idx += 1
-
-    # get initial configuration
-    pdb = app.PDBFile(name + "_min.pdb")
-    topology = pdb.topology
-    positions = pdb.positions
-
-    templates = util.template_dict(topology, n_beads)
-    min_name, log_name, traj_name, lastframe_name = util.output_filenames(name, traj_idx)
-
-    forcefield = app.ForceField(ff_filename)
-
-    system = forcefield.createSystem(topology,
-            nonbondedMethod=app.CutoffPeriodic, nonbondedCutoff=cutoff,
-            ignoreExternalBonds=True, residueTemplates=templates)
-
-    # set switching function on nonbonded forces
-    for i in range(system.getNumForces()):
-        force = system.getForce(i) 
-        if force.__repr__().find("NonbondedForce") > -1:
-            force.setUseSwitchingFunction(True)
-            if r_switch == 0:
-                raise IOError("Set switching distance")
-            else:
-                force.setSwitchingDistance(r_switch/unit.nanometer)
-    if cuda:
-        properties = {'DeviceIndex': '0'}
-        platform = omm.Platform.getPlatformByName('CUDA') 
-
-    barostat = omm.MonteCarloBarostat(pressure, temperature)
-    baro_idx = system.addForce(barostat)
-
-    integrator = omm.LangevinIntegrator(temperature, collision_rate, timestep)
-
-    if cuda:
-        simulation = app.Simulation(topology, system, integrator, platform, properties)
-    else:
-        simulation = app.Simulation(topology, system, integrator)
-
-    simulation.context.setPositions(positions)
-    simulation.minimizeEnergy(tolerance=energy_minimization_tol)
-
-    simulation.reporters.append(app.DCDReporter(traj_name, nsteps_out))
-    simulation.reporters.append(app.StateDataReporter(log_name, nsteps_out,
-        step=True, potentialEnergy=True, kineticEnergy=True, temperature=True,
-        density=True, volume=True))
-
-    save_forces = False
-    if save_forces:
-        simulation.reporters.append(additional_reporters.ForceReporter(name + "_forces_{}.dat".format(traj_idx), nsteps_out))
-
-    print "Target: ", target_volume, " (nm^3)"
-    print "Step    Pressure   Volume   Factor: "
-    all_P = []
-    all_V = []
-    for i in range(200):
-        # run at this pressure a little
-        simulation.step(n_steps)
-
-        P = simulation.context.getParameter(barostat.Pressure())
-        state = simulation.context.getState()
-        box_volume = state.getPeriodicBoxVolume()/(unit.nanometer**3)
-        all_P.append(P)
-        all_V.append(box_volume)
-
-        perc_err_V = np.abs((target_volume - box_volume)/target_volume)*100.
-        factor = (box_volume/target_volume)
-        if (i > 10):
-            if perc_err_V <= 10:
-                print "{:<5d} {:>10.2f} {:>10.2f} {:>5.7f}  DONE".format(i + 1, P, box_volume, factor)
-                # save last frame with new box dimensions
-                state = simulation.context.getState()
-                topology.setPeriodicBoxVectors(state.getPeriodicBoxVectors())
-                simulation.reporters.append(app.PDBReporter(lastframe_name, 1))
-                simulation.step(1)
-                shutil.copy(lastframe_name, saveas)
-                break
-
-        # update pressure
-        print "{:<5d} {:>10.2f} {:>10.2f} {:>5.7f}".format(i + 1, P, box_volume, factor)
-        old_pressure = pressure
-        pressure = factor*old_pressure
-        simulation.context.setParameter(barostat.Pressure(), pressure)
-
-    all_P = np.array(all_P)
-    all_V = np.array(all_V)
-
-    np.save("pressure_in_atm_vs_step.npy", all_P)
-    np.save("volume_in_nm3_vs_step.npy", all_V)
-    
-    #N = len(all_P) - 1
-    #avgV = np.mean(all_V[N/2:-1]) 
-    #stdV = np.std(all_V[N/2:-1]) 
-    #avgP = np.mean(all_P[N/2:-1]) 
-    #stdP = np.std(all_P[N/2:-1]) 
-
-    #np.savetxt("avgV.dat", np.array([avgV, stdV]))
-    #np.savetxt("pressure.dat", np.array([avgP, stdP]))
-    #np.savetxt("temperature.dat", np.array([refT]))
+    pass
