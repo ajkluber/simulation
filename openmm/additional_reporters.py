@@ -18,7 +18,8 @@ class ForceReporter(object):
         forces = state.getForces().value_in_unit(unit.kilojoules/unit.mole/unit.nanometer)
         f_string = ""
         for f in forces:
-            f_string += '%g %g %g ' % (f[0], f[1], f[2])
+            #f_string += '%g %g %g ' % (f[0], f[1], f[2])
+            f_string += '{:>10.2f} {:>10.3f} {:>10.3f} '.format(f[0], f[1], f[2])
         f_string = f_string[:-1] + '\n'
         self._out.write(f_string)
 
@@ -38,7 +39,8 @@ class VelocityReporter(object):
         velocities = state.getVelocities().value_in_unit(unit.nanometer/unit.picosecond)
         v_string = ""
         for v in velocities:
-            v_string += '%g %g %g ' % (v[0], v[1], v[2])
+            #v_string += '%g %g %g ' % (v[0], v[1], v[2])
+            v_string += '{:>10.2f} {:>10.3f} {:>10.3f} '.format(v[0], v[1], v[2])
         v_string = v_string[:-1] + '\n'
         self._out.write(v_string)
 
