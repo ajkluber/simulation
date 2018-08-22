@@ -14,7 +14,7 @@ global energy_minimization_tol
 energy_minimization_tol = unit.Quantity(value=10., unit=unit.kilojoule_per_mole)
 
 def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
-        cutoff, r_switch, refT=300, save_forces=False, cuda=False, p0=4000.):
+        cutoff, r_switch, refT, save_forces=False, cuda=False, p0=4000.):
     """Adaptively change pressure to reach target volume (density)"""
 
     temperature = refT*unit.kelvin
@@ -292,7 +292,7 @@ def production(topology, positions, ensemble, temperature, timestep,
     # run simulation!
     simulation.step(n_steps)
 
-    # make sure to save the periodic box dimension in case they changed.
+    # save final state. positions, box vectors. 
     simulation.saveState(final_state_name)
 
 
