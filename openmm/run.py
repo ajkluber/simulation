@@ -173,7 +173,11 @@ def equilibrate_unitcell_volume(pressure, ff_files, name, n_beads, refT, T,
     else:
         simulation = app.Simulation(topology, system, integrator)
 
-    simulation.loadState(prev_state_file)
+    if prev_state_file.endswith("xml"):
+        simulation.loadState(prev_state_file)
+    else:
+        pdb = app.PDBFile(prev_state_file)
+        simulation.context.setPositions(pdb.positions)
 
     simulation.reporters.append(app.DCDReporter(traj_name, nsteps_out))
     simulation.reporters.append(app.StateDataReporter(log_name, nsteps_out,
