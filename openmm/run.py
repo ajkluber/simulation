@@ -13,7 +13,7 @@ import additional_reporters
 global energy_minimization_tol
 energy_minimization_tol = unit.Quantity(value=10., unit=unit.kilojoule_per_mole)
 
-def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
+def adaptively_find_best_pressure(target_volume, ff_files, name, n_beads,
         cutoff, r_switch, refT, save_forces=False, cuda=False, p0=4000.):
     """Adaptively change pressure to reach target volume (density)"""
 
@@ -40,7 +40,7 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
     templates = util.template_dict(topology, n_beads)
     min_name, log_name, traj_name, final_state_name = util.output_filenames(name, traj_idx)
 
-    forcefield = app.ForceField(ff_filename)
+    forcefield = app.ForceField(*ff_files)
 
     system = forcefield.createSystem(topology,
             nonbondedMethod=app.CutoffPeriodic, nonbondedCutoff=cutoff,
@@ -117,7 +117,7 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
     np.save("pressure_in_atm_vs_step.npy", all_P)
     np.save("volume_in_nm3_vs_step.npy", all_V)
 
-def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, refT, T,
+def equilibrate_unitcell_volume(pressure, ff_files, name, n_beads, refT, T,
         cutoff, r_switch, prev_state_file, cuda=False):
     """Adaptively change pressure to reach target volume (density)"""
 
@@ -147,7 +147,7 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, refT, T,
     log_name = name + "_{}.log".format(traj_idx)
     traj_name = name + "_traj_{}.dcd".format(traj_idx)
 
-    forcefield = app.ForceField(ff_filename)
+    forcefield = app.ForceField(*ff_files)
 
     system = forcefield.createSystem(topology,
             nonbondedMethod=app.CutoffPeriodic, nonbondedCutoff=cutoff,
@@ -213,18 +213,15 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, refT, T,
     np.save("box_dims_nm.npy", box_dims_in_nm)
 
 def production(topology, positions, ensemble, temperature, timestep,
-        collision_rate, pressure, n_steps, nsteps_out, ff_filename,
+        collision_rate, pressure, n_steps, nsteps_out, ff_files,
         firstframe_name, log_name, traj_name, final_state_name, cutoff,
-        templates, n_equil_steps=1000, ff_files=[],
+        templates, n_equil_steps=1000, 
         nonbondedMethod=app.CutoffPeriodic, prev_state_name=None,
         use_switch=False, r_switch=0, minimize=False, cuda=False,
         gpu_idxs=False, more_reporters=[], dynamics="Langevin"): 
 
     # load forcefield from xml file(s)
-    if len(ff_files) > 0:
-        forcefield = app.ForceField(*ff_files)
-    else:
-        forcefield = app.ForceField(ff_filename)
+    forcefield = app.ForceField(*ff_files)
 
     system = forcefield.createSystem(topology,
             nonbondedMethod=nonbondedMethod, nonbondedCutoff=cutoff,
