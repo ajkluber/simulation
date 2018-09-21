@@ -215,12 +215,16 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, refT, T,
 def production(topology, positions, ensemble, temperature, timestep,
         collision_rate, pressure, n_steps, nsteps_out, ff_filename,
         firstframe_name, log_name, traj_name, final_state_name, cutoff,
-        templates, n_equil_steps=1000, nonbondedMethod=app.CutoffPeriodic,
-        prev_state_name=None, use_switch=False, r_switch=0, minimize=False,
-        cuda=False, gpu_idxs=False, more_reporters=[], dynamics="Langevin"): 
+        templates, n_equil_steps=1000, ff_files=[],
+        nonbondedMethod=app.CutoffPeriodic, prev_state_name=None,
+        use_switch=False, r_switch=0, minimize=False, cuda=False,
+        gpu_idxs=False, more_reporters=[], dynamics="Langevin"): 
 
-    # load forcefield from xml file
-    forcefield = app.ForceField(ff_filename)
+    # load forcefield from xml file(s)
+    if len(ff_files) > 0:
+        forcefield = app.ForceField(*ff_files)
+    else:
+        forcefield = app.ForceField(ff_filename)
 
     system = forcefield.createSystem(topology,
             nonbondedMethod=nonbondedMethod, nonbondedCutoff=cutoff,
