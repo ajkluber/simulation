@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import shutil
 import numpy as np
@@ -79,8 +80,8 @@ def adaptively_find_best_pressure(target_volume, ff_files, name, n_beads,
 
     simulation.reporters.append(additional_reporters.ForceReporter(name + "_forces_{}.dat".format(traj_idx), nsteps_out))
 
-    print "Target: ", target_volume, " (nm^3)"
-    print "Step    Pressure   Volume   Factor: "
+    print("Target: ", target_volume, " (nm^3)")
+    print("Step    Pressure   Volume   Factor: ")
     all_P = []
     all_V = []
     for i in range(200):
@@ -97,7 +98,7 @@ def adaptively_find_best_pressure(target_volume, ff_files, name, n_beads,
         factor = (box_volume/target_volume)
         if (i > 10):
             if perc_err_V <= 5:
-                print "{:<5d} {:>10.2f} {:>10.2f} {:>5.7f}  DONE".format(i + 1, P, box_volume, factor)
+                print("{:<5d} {:>10.2f} {:>10.2f} {:>5.7f}  DONE".format(i + 1, P, box_volume, factor))
                 simulation.saveState("final_state.xml")
                 state = simulation.context.getState()
                 box_vecs = state.getPeriodicBoxVectors()
@@ -106,7 +107,7 @@ def adaptively_find_best_pressure(target_volume, ff_files, name, n_beads,
                 break
 
         # update pressure
-        print "{:<5d} {:>10.2f} {:>10.2f} {:>5.7f}".format(i + 1, P, box_volume, factor)
+        print("{:<5d} {:>10.2f} {:>10.2f} {:>5.7f}".format(i + 1, P, box_volume, factor))
         old_pressure = pressure
         pressure = factor*old_pressure
         simulation.context.setParameter(barostat.Pressure(), pressure)

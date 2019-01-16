@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import numpy as np
 
@@ -30,7 +31,7 @@ def output_filenames(name, traj_idx):
 #
 #    # get initial configuration
 #    if traj_idx == 1:
-#        print "starting new simulation from: " + name + "_min.pdb"
+#        print("starting new simulation from: " + name + "_min.pdb")
 #        pdb = app.PDBFile(name + "_min.pdb")
 #        topology = pdb.topology
 #        positions = pdb.positions
@@ -40,7 +41,7 @@ def output_filenames(name, traj_idx):
 #        #omm.
 #        prev_state_name = name + "_final_state_{}.xml".format(traj_idx - 1)
 #        if os.path.exists(prev_state_name):
-#            print "extending from " + prev_state_name
+#            print("extending from " + prev_state_name)
 #            pdb = app.PDBFile(name + "_min.pdb")
 #            topology = pdb.topology
 #
@@ -48,7 +49,7 @@ def output_filenames(name, traj_idx):
 #            state = omm.XmlSerializer__deserializeState(prev_state_name)
 #            positions = state.getPositions()
 #        elif os.path.exists(name + "_traj_{}.dcd".format(traj_idx - 1)) and os.path.exists(name + "_min.pdb"):
-#            print "extending from final frame of " + name + "_traj_{}.pdb".format(traj_idx - 1)
+#            print("extending from final frame of " + name + "_traj_{}.pdb".format(traj_idx - 1))
 #            # How to extend from state file if crash?
 #            import mdtraj as md
 #            traj = md.load(name + "_traj_{}.dcd".format(traj_idx - 1), top=name + "_min.pdb")

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import time
 import argparse
@@ -67,14 +68,14 @@ if __name__ == "__main__":
 
     # get initial configuration
     if traj_idx == 1:
-        print "starting new simulation from: " + name + "_min.pdb"
+        print("starting new simulation from: " + name + "_min.pdb")
         pdb = app.PDBFile(name + "_min.pdb")
     else:
         if os.path.exists(name + "_fin_{}.pdb".format(traj_idx - 1)):
-            print "extending from" + name + "_fin_{}.pdb".format(traj_idx - 1)
+            print("extending from" + name + "_fin_{}.pdb".format(traj_idx - 1))
             pdb = app.PDBFile(name + "_fin_{}.pdb".format(traj_idx - 1))
         elif os.path.exists(name + "_traj_{}.dcd".format(traj_idx - 1)) and os.path.exists(name + "_min.pdb"):
-            print "extending from final frame of " + name + "_traj_{}.pdb".format(traj_idx - 1)
+            print("extending from final frame of " + name + "_traj_{}.pdb".format(traj_idx - 1))
             import mdtraj as md
             traj = md.load(name + "_traj_{}.dcd".format(traj_idx - 1), top=name + "_min.pdb")
             traj[-1].save_pdb(name + "_fin_{}.pdb".format(traj_idx - 1))
@@ -124,11 +125,11 @@ if __name__ == "__main__":
             system.addForce(omm.MonteCarloBarostat(pressure, temperature))
 
     # Run simulation
-    print "running production..."
+    print("running production...")
     util.production_run(topology, positions, system, integrator, n_steps,
         nsteps_out, min_name, traj_name, lastframe_name, log_name)
     os.chdir("..")
 
     stoptime = time.time()
-    print "{} steps took {} min".format(n_steps, (stoptime - starttime)/60.)
+    print("{} steps took {} min".format(n_steps, (stoptime - starttime)/60.))
     os.chdir("..")
