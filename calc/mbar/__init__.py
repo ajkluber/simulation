@@ -1,1 +1,0 @@
-import heat_capacity_vs_T
