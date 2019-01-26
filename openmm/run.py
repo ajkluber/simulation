@@ -217,20 +217,12 @@ def equilibrate_unitcell_volume(pressure, ff_files, name, n_beads, refT, T,
     box_dims_in_nm = np.array([ box_vecs[x][x]/unit.nanometer for x in range(3) ])
     np.save("box_dims_nm.npy", box_dims_in_nm)
 
-def production(topology, positions, ensemble, temperature, timestep,
-        collision_rate, pressure, n_steps, nsteps_out, ff_files,
-        firstframe_name, log_name, traj_name, final_state_name, cutoff,
-        templates, n_equil_steps=1000, 
-        nonbondedMethod=app.CutoffPeriodic, prev_state_name=None,
-        use_switch=False, r_switch=0, minimize=False, cuda=False,
-        gpu_idxs=False, more_reporters=[], dynamics="Langevin"): 
-
-    # load forcefield from xml file(s)
-    forcefield = app.ForceField(*ff_files)
-
-    system = forcefield.createSystem(topology,
-            nonbondedMethod=nonbondedMethod, nonbondedCutoff=cutoff,
-            ignoreExternalBonds=True, residueTemplates=templates)
+def production(system, topology, ensemble, temperature, timestep,
+        collision_rate,  n_steps, nsteps_out,
+        firstframe_name, log_name, traj_name, final_state_name,
+        n_equil_steps=1000, ini_positions=None, ini_state_name=None,
+        use_switch=False, r_switch=None, pressure=None, minimize=False, 
+        cuda=False, gpu_idxs=None, more_reporters=[], dynamics="Langevin"): 
 
     if use_switch:
         # set switching function on nonbonded forces
@@ -238,8 +230,8 @@ def production(topology, positions, ensemble, temperature, timestep,
             force = system.getForce(i) 
             if force.__repr__().find("NonbondedForce") > -1:
                 force.setUseSwitchingFunction(True)
-                if r_switch == 0:
-                    raise IOError("Set switching distance")
+                if r_switch is None:
+                    raise IOError("Need to input r_switch if use_switch = True")
                 else:
                     force.setSwitchingDistance(r_switch/unit.nanometer)
             
@@ -253,25 +245,29 @@ def production(topology, positions, ensemble, temperature, timestep,
         else:
             raise IOError("dynamics must be Langevin or Brownian")
         if ensemble == "NPT":
+            if pressure is None:
+                raise ValueError("If ensemble is NPT need to specficy pressure")
             system.addForce(omm.MonteCarloBarostat(pressure, temperature))
     
     if cuda:
         platform = omm.Platform.getPlatformByName('CUDA') 
-        if gpu_idxs:
-            properties = {'DeviceIndex': gpu_idxs}
-        else:
+        if gpu_idxs is None:
             properties = {'DeviceIndex': '0'}
+        else:
+            properties = {'DeviceIndex': gpu_idxs}
 
         simulation = app.Simulation(topology, system, integrator, platform, properties)
     else:
         simulation = app.Simulation(topology, system, integrator)
 
-    if prev_state_name is None:
+    if not ini_positions is None:
         # set initial positions and box dimensions
-        simulation.context.setPositions(positions)
+        simulation.context.setPositions(ini_positions)
         #simulation.context.setPeriodicBoxVectors()
+    elif not ini_position_file is None:
+        simulation.loadState(ini_state_name)
     else:
-        simulation.loadState(prev_state_name)
+        raise ValueError("Need to specify initial positions somehow!")
 
     if minimize:
         simulation.minimizeEnergy(tolerance=energy_minimization_tol)
@@ -304,4 +300,53 @@ def production(topology, positions, ensemble, temperature, timestep,
 
 if __name__ == "__main__":
     # sandbox
-    pass
+
+    n_forces = system.getNumForces()
+
+    for i in range(n_forces):
+        frc = system.getForce(i)
+        frc.setForceGroup(i)
+        #print(str(frc))
+
+    fex, fb, fa, fcv = system.getForce(0), system.getForce(1), system.getForce(2), system.getForce(4)
+
+    integrator = omm.VerletIntegrator(timestep)
+    simulation = app.Simulation(topology, system, integrator)
+    simulation.context.setPositions(positions)
+
+    print("KE            r12           bonds          angles            CMM            CV")
+    for i in range(100):
+        simulation.step(1)
+        #state = simulation.context.getState(getEnergy=True, getPositions=True, groups=f_grps)
+
+        pe_str = ""
+        for n in range(n_forces):
+            state = simulation.context.getState(getEnergy=True, groups={n})
+            PE_term = state.getPotentialEnergy()/unit.kilojoule_per_mole
+            pe_str += "{:.5e}   ".format(PE_term)
+
+        KE = state.getKineticEnergy()/unit.kilojoule_per_mole
+        #xyz= state.getPositions()
+        #print("{:.5e}   {:.5e}  ".format(PE, KE))
+        print("{:.5e}    ".format(KE) + pe_str)
+        #print(str(state.Positions))
+
+    raise SystemExit
+
+
+    forcefield    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
