@@ -7,25 +7,9 @@ import simtk.openmm.app as app
 
 import tabulated
 
-def indent(elem, level=0):
-    i = "\n" + level*"  "
-    if len(elem):
-        if not elem.text or not elem.text.strip():
-            elem.text = i + "  "
-        if not elem.tail or not elem.tail.strip():
-            elem.tail = i
-        for elem in elem:
-            indent(elem, level+1)
-        if not elem.tail or not elem.tail.strip():
-            elem.tail = i
-    else:
-        if level and (not elem.tail or not elem.tail.strip()):
-            elem.tail = i
-
-def add_element_traits(elem, traits):
-    for key, value in traits.items():
-        elem.set(key, value)
-
+############################################
+# parameters
+############################################
 def toy_polymer_params_soft_bonds():
     # SOFTER parameters for coarse-grain polymer are taken from:
     sigma_ply = 0.373*unit.nanometer
@@ -123,13 +107,29 @@ def LJ_water_params():
     mass_slv = 18.*unit.amu
     return eps_slv, sigma_slv, mass_slv
 
-def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=False):
-
-    if soft_bonds:
-        sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params_soft_bonds()
+#########################################################
+# constructing XML files
+#########################################################
+def indent(elem, level=0):
+    i = "\n" + level*"  "
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
     else:
-        sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
 
+def add_element_traits(elem, traits):
+    for key, value in traits.items():
+        elem.set(key, value)
+
+def add_atom_and_res_types(n_beads, atm_types, res_types, mass_ply):
     for n in range(n_beads):
         # residues have the same set of atoms but we give them unique names in
         # order to get them bonded properly
@@ -140,10 +140,11 @@ def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=False
         add_element_traits(ET.SubElement(poly_res, "Atom"), {"name":"PL" + str(n + 1), "type":"Poly" + str(n + 1)})
         add_element_traits(ET.SubElement(poly_res, "ExternalBond"), {"atomName":"PL" + str(n + 1)})
 
+def add_bonds_angles(n_beads, ff, r0, kb, theta0, ka):
+
     # bonded interactions
     bond_f = ET.SubElement(ff, "HarmonicBondForce")
     kb_units = unit.kilojoule_per_mole/(unit.nanometer**2)
-    r0, kb, theta0, ka = toy_polymer_bonded_params()
     for n in range(n_beads):
         if n > 0:
             # add harmonic bonds
@@ -159,6 +160,17 @@ def add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=False
             add_element_traits(ET.SubElement(angle_f, "Angle"),
                 {"type1":"Poly" + str(n - 1) , "type2":"Poly" + str(n), "type3":"Poly" + str(n + 1), 
                     "angle":str(theta0/unit.radians),"k":str(ka/ka_units)})
+
+def add_bonded_term_items(n_beads, ff, atm_types, res_types, soft_bonds=False):
+
+    if soft_bonds:
+        sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params_soft_bonds()
+    else:
+        sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
+    r0, kb, theta0, ka = toy_polymer_bonded_params()
+
+    add_atom_and_res_types(n_beads, atm_types, res_types, mass_ply)
+    add_bonds_angles(n_beads, ff, r0, kb, theta0, ka)
 
 def polymer_in_solvent(n_beads, ply_potential, slv_potential, saveas="ff_cgs.xml", **kwargs):
     """Build xml forcefield file for polymer in coarse-grain solvent
@@ -182,8 +194,15 @@ def polymer_in_solvent(n_beads, ply_potential, slv_potential, saveas="ff_cgs.xml
         interactions.
     """
 
-    assert ply_potential in ["LJ", "WCA", "LJ6"]
-    assert slv_potential in ["LJ", "CS", "SPC"]
+    # Custom nonbonded interactions for LJ12-10, WCA, and CS interactions
+
+    # polymer-polymer and polymer-solvent interactions are the same: either LJ or WCA
+    # solvent-solvent interactions are either LJ or CS
+    assert ply_potential in ["LJ", "WCA", "LJ6", "r12"]
+    assert slv_potential in ["LJ", "CS", "SPC", "NONE"]
+
+    rmin = 0.1*unit.nanometers
+    rmax = 1.5*unit.nanometers
 
     # forcefield xml tags
     ff = ET.Element("ForceField")
@@ -191,6 +210,7 @@ def polymer_in_solvent(n_beads, ply_potential, slv_potential, saveas="ff_cgs.xml
     res_types = ET.SubElement(ff, "Residues")
 
     if ply_potential == "LJ6" and slv_potential == "SPC":
+        # polymer is SPC water
         eps_ply = kwargs["eps_ply"]
         sigma_ply = kwargs["sigma_ply"]
         mass_ply = kwargs["mass_ply"]
@@ -203,54 +223,60 @@ def polymer_in_solvent(n_beads, ply_potential, slv_potential, saveas="ff_cgs.xml
             {"class":"PL", "charge":"0.0", "sigma":str_sig_ply, "epsilon":str_eps_ply})
 
         # add polymer only items
-        add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, mass_ply)
+        add_bonded_term_items(n_beads, ff, atm_types, res_types, mass_ply)
     else:
-        # Custom nonbonded interactions for LJ12-10, WCA, and CS interactions
-
-        # polymer-polymer and polymer-solvent interactions are the same: either LJ or WCA
-        # solvent-solvent interactions are either LJ or CS
         eng_str = ""
-        if slv_potential == "LJ":
-            eps_slv = kwargs["eps_slv"]
-            sigma_slv = kwargs["sigma_slv"]
-            mass_slv = kwargs["mass_slv"]
-            eng_str += "areslv*eps_slv*(5*((rmin_slv/r)^12) - 6*((rmin_slv/r)^10)) + "
-        elif slv_potential == "CS":
-            eng_str += "areslv*CS(r) + "
-            eps_ww, sigma_ww, B, r0, Delta, mass_slv = CS_water_params()
+        if slv_potential == "NONE":
+            if ply_potential == "LJ":
+                eps_ply = kwargs["eps_ply"]
+                sigma_ply = kwargs["sigma_ply"]
+                mass_ply = kwargs["mass_ply"]
+                eng_str += "eps_ply*(5*((rmin_ply/r)^12) - 6*((rmin_ply/r)^10))"
+            elif ply_potential == "r12":
+                eps_ply = kwargs["eps_ply"]
+                sigma_ply = kwargs["sigma_ply"]
+                mass_ply = kwargs["mass_ply"]
+                eng_str += "eps_ply*((rmin_ply/r)^12)"
+            elif ply_potential == "WCA":
+                eng_str += "WCA(r)"
+                sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
 
-        if ply_potential == "LJ":
-            eps_ply = kwargs["eps_ply"]
-            sigma_ply = kwargs["sigma_ply"]
-            mass_ply = kwargs["mass_ply"]
-            eng_str += "(1 - areslv)*eps_ply*(5*((rmin_ply/r)^12) - 6*((rmin_ply/r)^10))"
-        elif ply_potential == "WCA":
-            eng_str += "(1 - areslv)*WCA(r)"
-            sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
+            eng_str += ";"
+        else:
+            # compound expression if polymer in solvent
+            if slv_potential == "LJ":
+                eps_slv = kwargs["eps_slv"]
+                sigma_slv = kwargs["sigma_slv"]
+                mass_slv = kwargs["mass_slv"]
+                eng_str += "areslv*eps_slv*(5*((rmin_slv/r)^12) - 6*((rmin_slv/r)^10)) + "
+            elif slv_potential == "CS":
+                eng_str += "areslv*CS(r) + "
+                eps_ww, sigma_ww, B, r0, Delta, mass_slv = CS_water_params()
 
-        # add polymer only items
-        add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, mass_ply)
+            if ply_potential == "LJ":
+                eps_ply = kwargs["eps_ply"]
+                sigma_ply = kwargs["sigma_ply"]
+                mass_ply = kwargs["mass_ply"]
+                eng_str += "(1 - areslv)*eps_ply*(5*((rmin_ply/r)^12) - 6*((rmin_ply/r)^10))"
+            elif ply_potential == "r12":
+                eps_ply = kwargs["eps_ply"]
+                sigma_ply = kwargs["sigma_ply"]
+                mass_ply = kwargs["mass_ply"]
+                eng_str += "(1 - areslv)*eps_ply*((rmin_ply/r)^12)"
+            elif ply_potential == "WCA":
+                eng_str += "(1 - areslv)*WCA(r)"
+                sigma_ply, eps_ply, mass_ply, bonded_params = toy_polymer_params()
 
-        eng_str += "; areslv=step((flavor1 + flavor2) - 1.5)"
+            eng_str += "; areslv=step((flavor1 + flavor2) - 1.5)"
 
-        rmin = 0.1*unit.nanometers
-        rmax = 1.5*unit.nanometers
-
-        # solvent parameters
-        add_element_traits(ET.SubElement(atm_types, "Type"),
-            {"name":"Solv", "class": "CS", "element":"Sv", "mass":str(mass_slv/unit.amu)})
-        add_element_traits(ET.SubElement(ET.SubElement(res_types, "Residue",
-            attrib={"name":"SLV"}), "Atom"), {"name":"CS", "type":"Solv"})
-
-        cust_nb_f = ET.SubElement(ff, "CustomNonbondedForce", {"energy":eng_str,"bondCutoff":"3"})
 
         # each particle class (solvent=CS, water=OW, polymer=PL) has a 'flavor'. Flavors
         # determine the interaction
+        cust_nb_f = ET.SubElement(ff, "CustomNonbondedForce", {"energy":eng_str, "bondCutoff":"3"})
         add_element_traits(ET.SubElement(cust_nb_f, "PerParticleParameter"), {"name":"flavor"})
-        add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"CS", "flavor":"1"})
         add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"PL", "flavor":"0"})
 
-        if ply_potential == "LJ":
+        if ply_potential in ["r12", "LJ"]:
             str_eps_ply = str(eps_ply/unit.kilojoule_per_mole)
             str_rmin_ply = str(sigma_ply/unit.nanometer)
             add_element_traits(ET.SubElement(cust_nb_f, "GlobalParameter"), {"name":"eps_ply", "defaultValue":str_eps_ply})
@@ -264,108 +290,62 @@ def polymer_in_solvent(n_beads, ply_potential, slv_potential, saveas="ff_cgs.xml
             wca_tab = tabulated.wca_table(sigma_ply, eps_ply, rmin, rmax)
             wca_f.text = wca_tab
 
-        if slv_potential == "LJ":
-            str_eps_slv = str(eps_slv/unit.kilojoule_per_mole)
-            str_rmin_slv = str(sigma_slv/unit.nanometer)
-            add_element_traits(ET.SubElement(cust_nb_f, "GlobalParameter"), {"name":"eps_slv", "defaultValue":str_eps_slv})
-            add_element_traits(ET.SubElement(cust_nb_f, "GlobalParameter"), {"name":"rmin_slv", "defaultValue":str_rmin_slv})
-        elif slv_potential == "CS":
-            # tabulated core-softened potential
-            cs_f = ET.SubElement(cust_nb_f, "Function")
-            add_element_traits(cs_f, {"name":"CS", "type":"Continuous1D",
-                "min":str(rmin/unit.nanometer), "max":str(rmax/unit.nanometer)})
+        if slv_potential != "NONE":
+            # solvent parameters
+            add_element_traits(ET.SubElement(atm_types, "Type"),
+                {"name":"Solv", "class": "CS", "element":"Sv", "mass":str(mass_slv/unit.amu)})
+            add_element_traits(ET.SubElement(ET.SubElement(res_types, "Residue",
+                attrib={"name":"SLV"}), "Atom"), {"name":"CS", "type":"Solv"})
 
-            cs_tab = tabulated.Chaimovich_table(eps_ww, sigma_ww, B, r0, Delta, rmin, rmax, 0, 0, switch=False)
-            cs_f.text = cs_tab
+            add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"CS", "flavor":"1"})
 
+            if slv_potential == "LJ":
+                str_eps_slv = str(eps_slv/unit.kilojoule_per_mole)
+                str_rmin_slv = str(sigma_slv/unit.nanometer)
+                add_element_traits(ET.SubElement(cust_nb_f, "GlobalParameter"), {"name":"eps_slv", "defaultValue":str_eps_slv})
+                add_element_traits(ET.SubElement(cust_nb_f, "GlobalParameter"), {"name":"rmin_slv", "defaultValue":str_rmin_slv})
+            elif slv_potential == "CS":
+                # tabulated core-softened potential
+                cs_f = ET.SubElement(cust_nb_f, "Function")
+                add_element_traits(cs_f, {"name":"CS", "type":"Continuous1D",
+                    "min":str(rmin/unit.nanometer), "max":str(rmax/unit.nanometer)})
 
-    indent(ff)
-    with open(saveas, "w") as fout:
-        fout.write(ET.tostring(ff))
+                cs_tab = tabulated.Chaimovich_table(eps_ww, sigma_ww, B, r0, Delta, rmin, rmax, 0, 0, switch=False)
+                cs_f.text = cs_tab
 
-def many_body_toy_system(n_beads, cutoff, saveas="ff_ex.xml"):
-    """Build xml forcefield file for toy system
-    
-    Parameters
-    ----------
-    n_beads : int
-        Number of monomers.
-    
-    """
-
-    #TODO
-
-    sigma = 0.3*unit.nanometer
-    eps = 0.5*unit.kilojoule_per_mole
-    mass = 37.*unit.amu
-    r0 = 0.153*unit.nanometer 
-
-    rmin = 0.2*unit.nanometer
-    rmax = 1.5*cutoff
-
-    # forcefield xml tags
-    ff = ET.Element("ForceField")
-    atm_types = ET.SubElement(ff, "AtomTypes")
-    res_types = ET.SubElement(ff, "Residues")
-
-    # solvent parameters
-    add_element_traits(ET.SubElement(ET.SubElement(res_types, "Residue",
-        attrib={"name":"SLV"}), "Atom"), {"name":"CS", "type":"Solv"})
-
-    # add custom nonbonded interactions that are:
-    #  1) Core-softened (CS) potential between solvent atoms
-    #  2) Weeks-Chandler-Andersen (WCA) repulsive for monomer-monomer and
-    #  monomer-solvent
-    cust_nb_f = ET.SubElement(ff, "CustomNonbondedForce",
-            {"energy":"areslv*CS(r) + (1 - areslv)*WCA(r); areslv=step((flavor1 + flavor2) - 1.5)", 
-                "bondCutoff":"3"})
-
-    # each particle class (solvent=CS, polymer=PL) has a 'flavor'. Flavors
-    # determine the interaction
-    add_element_traits(ET.SubElement(cust_nb_f, "PerParticleParameter"), {"name":"flavor"})
-    add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"CS", "flavor":"1"})
-    add_element_traits(ET.SubElement(cust_nb_f, "Atom"), {"class":"PL", "flavor":"0"})
-
-    # tabulated WCA potential
-    wca_f = ET.SubElement(cust_nb_f, "Function")
-    add_element_traits(wca_f, {"name":"WCA", "type":"Continuous1D",
-        "min":str(rmin/unit.nanometer), "max":str(rmax/unit.nanometer)})
-
-    wca_tab = tabulated.wca_table(sigma_ply, eps_ply, rmin, rmax)
-    wca_f.text = wca_tab
-
-    # tabulated core-softened potential
-    cs_f = ET.SubElement(cust_nb_f, "Function")
-    add_element_traits(cs_f, {"name":"CS", "type":"Continuous1D",
-        "min":str(rmin/unit.nanometer), "max":str(rmax/unit.nanometer)})
-
-    r_switch = cutoff - 0.11*unit.nanometer
-    r_cut = cutoff - 0.01*unit.nanometer
-    cs_tab = tabulated.Chaimovich_table(eps_ww, sigma_ww, B, r0, Delta, rmin, rmax, r_switch, r_cut, switch=True)
-    cs_f.text = cs_tab
-
-    # add polymer only items
-    add_toy_polymer_ff_items(n_beads, ff, atm_types, res_types, soft_bonds=soft_bonds)
+        # add bonded terms 
+        add_bonded_term_items(n_beads, ff, atm_types, res_types, mass_ply)
 
     indent(ff)
     with open(saveas, "w") as fout:
         fout.write(ET.tostring(ff))
 
-def read_polymer_params(n_beads, s_frames, bonds, angles, non_bond_wca, non_bond_gaussian, method):
 
-    savedir = "coeff_vs_s"
-    if bonds:
-        savedir += "_bond"
-    if angles:
-        savedir += "_angle"
-    if non_bond_wca:
-        savedir += "_wca"
-    if non_bond_gaussians:
-        savedir += "_gauss"
-    savedir += "_" + method
+#def cv_force_xml(n_beads, cv_expr, cv_grid, Ucv_table):
+#
+#    ff = ET.Element("ForceField")
+#    cust_cv_f = ET.SubElement(ff, "CustomCVForce", {"energy":"Table(Q)", })
+#    Ucv_item = ET.SubElement(cust_cv_f, "Function", 
+#            {"name":"Table", "type":"Continuous1D", 
+#                "min":"{:.8}".format(cv_grid[0]),"max":"{:.8}".format(cv_grid[-1])})
+#
+#    table_str = ""
+#    for i in range(len(Ucv_ext)):
+#        table_str += "{:.8f}".format(Ucv_ext[i])
+#        if (i % 10) == 0:
+#            table_str += "\n"
+#        else:
+#            table_str += " "
+#
+#    Ucv_item.text = table_str[:-1]
+#
+#    cust_cv
+#    cust_cv_f = ET.SubElement(ff, "CustomManyParticleForce", {"particlesPerSet":n_beads, "energy":cv_expr, "nh"})
+#
+#
+#    indent(ff)
+#    with open("test.xml", "w") as fout:
+#        fout.write(ET.tostring(ff))
 
-    n_params = np.sum([ int(x == True) for x in [bonds, angles, non_bond_wca, non_bond_gaussians]])
 
-    #for n in range(n_params):
-    #np.save("{}/coeff_{}_s_{}.npy".format(savedir, n+1, s_frames), temp_coeff)
 
