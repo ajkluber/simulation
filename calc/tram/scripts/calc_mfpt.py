@@ -61,7 +61,10 @@ if __name__ == "__main__":
     mfpt_pcca1 = lagtime*model_msm.mfpt(left_well, right_well)
     mfpt_pcca2 = lagtime*model_msm.mfpt(right_well, left_well)
 
-    #ReactiveFlux = msm.tpt(model_msm, left_well, right_well)
+
+    import pyemma.msm as msm
+    flux_obj = msm.tpt(model_msm, left_well, right_well)
+    transit_time = flux_obj.mfpt()
 
     q_avg_meta1 = np.dot(model_msm.stationary_distribution[left_well], obs_avg_clust[left_well])
     q_avg_meta2 = np.dot(model_msm.stationary_distribution[right_well], obs_avg_clust[right_well])

@@ -2,13 +2,32 @@ import os
 import numpy as np
 
 import simulation.calc.observables as observables
+import simulation.util as util
 
 if __name__ == "__main__":
-    trajfiles = [ x.rstrip("\n") for x in open("ticatrajs","r").readlines() ]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("name", 
+            type=str, 
+            help="Name")
+
+    parser.add_argument("n_native_pairs", 
+            type=float, 
+            help="Numer of native contacts")
+
+    args = parser.parse_args()
+    name = args.name
+    n_native_pairs = float(args.n_native_pairs)
+
+    T_used = util.get_T_used()
+    with open("Qtanh_0_05_profile/T_used.dat", "r") as fin:
+        T_used = float(fin.read())
+    
+    trajfiles = [ "T_{:.2f}_{}/traj.xtc".format(T_used, x) for x in [1,2,3]]
     dir = os.path.dirname(trajfiles[0])
-    pairs = np.loadtxt("%s/native_contacts.ndx" % dir, skiprows=1, dtype=int) - 1
-    n_native_pairs = pairs.shape[0]
-    r0 = np.loadtxt("%s/pairwise_params" % dir, usecols=(4,))[1:2*n_native_pairs:2]
+    top = "{}/ref.pdb".format(dir)
+
+    pairs = np.loadtxt("{}_pairwise_params".format(name), usecols=(0,1), dtype=int)
+    r0 = np.loadtxt("{}_pairwise_params".format(name), usecols=(4,))
     r0_cont = r0 + 0.1
 
     nn_pairs = np.loadtxt("%s/pairwise_params" % dir, usecols=(0,1))[2*n_native_pairs + 1::2] - 1
@@ -16,13 +35,9 @@ if __name__ == "__main__":
     nn_r0_cont = nn_r0 + 0.1
     widths = 0.05
 
-    top = "%s/Native.pdb" % dir
 
-    if all([ os.path.exists("%s/Qtanh_0_05.dat" % x.split("/")[0]) for x in trajfiles ]):
-        qtanh = [ np.loadtxt("%s/Qtanh_0_05.dat" % x.split("/")[0]) for x in trajfiles ]
-    else:
-        qtanhsum_obs = observables.TanhContactSum(top, pairs, r0_cont, widths)
-        qtanh = observables.calculate_observable(trajfiles, qtanhsum_obs, saveas="Qtanh_0_05.dat")
+    qtanh = [ np.load("%s/Qtanh_0_05.npy" % x.split("/")[0]) for x in trajfiles ]
+
 
     Atanhi_obs = observables.TanhContacts(top, nn_pairs, nn_r0_cont, widths)
     if os.path.exists("binned_Ai_vs_Qtanh_0_05/Ai_vs_bin.dat"):

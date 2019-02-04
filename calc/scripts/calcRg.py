@@ -11,19 +11,13 @@ if __name__ == "__main__":
     topname = "ref.pdb"
     trajname = "traj.xtc"
 
-    tempdirs = glob.glob("T_*_1/traj.xtc") + glob.glob("T_*_2/traj.xtc") + glob.glob("T_*_3/traj.xtc")
-    tempdirs = [ x.split("/traj.xtc")[0] for x in tempdirs ]
-    organized_temps = util.get_organized_temps(temperature_dirs=tempdirs)
-    T = organized_temps.keys()
-    T.sort()
+    with open("Qtanh_0_05_profile/T_used.dat", "r") as fin:
+        T_used = float(fin.read())
+    trajfiles = [ "T_{:.2f}_{}/traj.xtc".format(T_used, x) for x in [1,2,3]]
+    tempdirs = [ x.split("/")[0] for x in trajfiles ]
     topfile = tempdirs[0] + "/" + topname
 
-    trajfiles = []
-    for i in range(len(T)):
-        trajfiles.append([ x + "/" + trajname for x in organized_temps[T[i]] ])
-
     for i in range(len(trajfiles)):
-        for j in range(len(trajfiles[i])): 
-            traj = md.load(trajfiles[i][j], top=topfile)
-            Rg = md.compute_rg(traj)
-            np.save(os.path.dirname(trajfiles[i][j]) + "/Rg.npy", Rg)
+        traj = md.load(trajfiles[i], top=topfile)
+        Rg = md.compute_rg(traj)
+        np.save(tempdirs[i] + "/Rg.npy", Rg)

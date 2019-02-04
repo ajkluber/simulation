@@ -95,12 +95,15 @@ def get_U_trajs(coordfile, n_native_pairs, min_len=100):
 
     if os.path.exists("{}_profile/T_used.dat".format(coordname)):
         os.chdir("{}_profile".format(coordname))
-        with open("T_used.dat") as fin:
+        with open("T_used.dat", "r") as fin:
             T_used = float(fin.read())
         minima = np.loadtxt("minima.dat")
         U = minima.min()/n_native_pairs
         N = minima.max()/n_native_pairs
         os.chdir("..")
+    elif os.path.exists("T_used.dat"):
+        with open("T_used.dat", "r") as fin:
+            T_used = float(fin.read())
     else:
         raise IOError("No T_used.dat found.")
 

@@ -392,19 +392,30 @@ def bin_observable(trajfiles, observable, binning_coord, bin_edges, chunksize=10
     count_by_bin = np.zeros(bin_edges.shape[0],float)
     for i in range(len(trajfiles)):
         start_idx = 0
-        for trajchunk in mdtraj.iterload(trajfiles[i],top=observable.top,chunk=chunksize):
-            obs_temp = observable.map(trajchunk)
-            chunk_size = trajchunk.n_frames
-            coord = binning_coord[i][start_idx:start_idx + chunk_size]
-            # Assign frames in trajectory chunk to histogram bins.
+        if type(trajfiles[i]) == str:
+            # if passed filenames 
+            for trajchunk in mdtraj.iterload(trajfiles[i],top=observable.top,chunk=chunksize):
+                obs_temp = observable.map(trajchunk)
+                chunk_size = trajchunk.n_frames
+                coord = binning_coord[i][start_idx:start_idx + chunk_size]
+                # Assign frames in trajectory chunk to histogram bins.
+                for n in range(bin_edges.shape[0]):
+                    frames_in_this_bin = (coord >= bin_edges[n][0]) & (coord < bin_edges[n][1])
+                    if np.any(frames_in_this_bin):
+                        obs_by_bin[n,:] += np.sum(obs_temp[frames_in_this_bin],axis=0)
+                        count_by_bin[n] += float(sum(frames_in_this_bin))
+                    # TODO: Break out of loop when all frames have been assigned.
+                    # Count n_frames_assigned. Break when n_frames_assigned == chunk_size
+                start_idx += chunk_size
+        else:
+            # if passed trajectories
+            obs_temp = observable.map(trajfiles[i])
+            coord = binning_coord[i]
             for n in range(bin_edges.shape[0]):
                 frames_in_this_bin = (coord >= bin_edges[n][0]) & (coord < bin_edges[n][1])
                 if np.any(frames_in_this_bin):
                     obs_by_bin[n,:] += np.sum(obs_temp[frames_in_this_bin],axis=0)
                     count_by_bin[n] += float(sum(frames_in_this_bin))
-                # TODO: Break out of loop when all frames have been assigned.
-                # Count n_frames_assigned. Break when n_frames_assigned == chunk_size
-            start_idx += chunk_size
             
     obs_bin_avg = np.zeros((bin_edges.shape[0],observable.dimension),float)
     for n in range(bin_edges.shape[0]):

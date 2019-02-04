@@ -53,7 +53,7 @@ if __name__ == "__main__":
     q_obs = observables.TanhContacts(topfile, pairs, r0_cont, widths, periodic=False)
 
     # bin contact maps along transition paths
-    bin_edges = np.linspace(U + 5, N - 5, 6)
+    bin_edges = np.linspace(U + (5./n_native_pairs), N - (5./n_native_pairs), 6)
     bin_counts = np.zeros(len(bin_edges) - 1, float)
     bin_sum = np.zeros((len(bin_edges) - 1, n_pairs), float)
     for i in range(len(trajfiles)):
@@ -122,5 +122,3 @@ if __name__ == "__main__":
         os.mkdir("plots")
     plt.savefig("plots/{}_tp_contacts.pdf".format(coordname))
     plt.savefig("plots/{}_tp_contacts.png".format(coordname))
-
-    plt.show()

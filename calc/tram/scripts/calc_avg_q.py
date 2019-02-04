@@ -33,7 +33,14 @@ def get_q_featurizer(topfile, pairwise_file, n_native_pairs):
 
     return feat, feature_info
 
-def calculate_avg_q_for_U_dwells(pairwise_file, n_native_pairs):
+def calculate_avg_q_for_dwells(state, pairwise_file, n_native_pairs):
+
+    if state == "native":
+        label = "N"
+    elif state == "unfolded":
+        label = "U"
+    else:
+        raise IOError("State needs to be native or unfolded")
 
     os.chdir("Qtanh_0_05_profile")
     with open("T_used.dat") as fin:
@@ -52,8 +59,8 @@ def calculate_avg_q_for_U_dwells(pairwise_file, n_native_pairs):
 
     n_dim = len(feat.describe())
     
-    if not os.path.exists("hidhdim_Cq_U_{:.2f}".format(T)):
-        os.mkdir("hidhdim_Cq_U_{:.2f}".format(T))
+    if not os.path.exists("hidhdim_Cq_{}_{:.2f}".format(label, T)):
+        os.mkdir("hidhdim_Cq_{}_{:.2f}".format(label, T))
 
     all_avg_q = []
     all_Ntot = []
@@ -90,16 +97,23 @@ def calculate_avg_q_for_U_dwells(pairwise_file, n_native_pairs):
         for i in range(len(trajfiles)):
             avg_q += (all_Ntot[i]/float(N))*all_avg_q[i]
 
-    np.save("hidhdim_Cq_U_{:.2f}/avg_q.npy".format(T), avg_q)
+    np.save("hidhdim_Cq_{}_{:.2f}/avg_q.npy".format(label, T), avg_q)
 
-def calculate_avg_q_for_trajs(T, trajfiles, pairwise_file, topfile, n_native_pairs):
+def calculate_avg_q_for_trajs(state, T, trajfiles, pairwise_file, topfile, n_native_pairs):
+
+    if state == "native":
+        label = "N"
+    elif state == "unfolded":
+        label = "U"
+    else:
+        raise IOError("State needs to be native or unfolded")
 
     # make featurizer
     feat, feature_info = get_q_featurizer(topfile, pairwise_file, n_native_pairs)
     n_dim = len(feat.describe())
     
-    if not os.path.exists("hidhdim_Cq_U_{:.2f}".format(T)):
-        os.mkdir("hidhdim_Cq_U_{:.2f}".format(T))
+    if not os.path.exists("hidhdim_Cq_{}_{:.2f}".format(label, T)):
+        os.mkdir("hidhdim_Cq_{}_{:.2f}".format(label, T))
 
     all_avg_q = []
     all_Ntot = []
@@ -120,7 +134,7 @@ def calculate_avg_q_for_trajs(T, trajfiles, pairwise_file, topfile, n_native_pai
         for i in range(len(trajfiles)):
             avg_q += (all_Ntot[i]/float(N))*all_avg_q[i]
 
-    np.save("hidhdim_Cq_U_{:.2f}/avg_q.npy".format(T), avg_q)
+    np.save("hidhdim_Cq_{}_{:.2f}/avg_q.npy".format(label, T), avg_q)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

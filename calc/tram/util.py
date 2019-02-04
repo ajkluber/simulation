@@ -120,6 +120,9 @@ def tanh_contact(traj, pairs, r0, widths):
     r = md.compute_distances(traj, pairs)
     return 0.5*(np.tanh((r0 - r)/widths) + 1)
 
+def dih_cosine(traj, dih_idxs, phi0):
+    phi = md.compute_dihedrals(traj, dih_idxs)
+    return np.cos(phi - phi0)
 
 def default_ca_sbm_features(feat, topfile, pairsfile=None):
     """Default features for a C-alpha structure-based model (SBM) are dihedral angles and """
@@ -160,6 +163,7 @@ def sbm_contact_features(feat, pairwise_file, n_native_pairs, skip_nn=10, native
             widths = np.concatenate((widths[:n_native_pairs], widths[n_native_pairs::skip_nn]))
 
     feat.add_custom_feature(CustomFeature(tanh_contact, pair_idxs, r0, widths, dim=len(pair_idxs)))
+    #feat.add_custom_feature(CustomFeature(tanh_contact, pair_idxs, r0, widths))
 
     feature_info = {'pairs':pair_idxs, 'r0':r0, 'widths':widths, 'dim':len(pair_idxs)}
 
