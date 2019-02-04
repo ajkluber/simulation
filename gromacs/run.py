@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import subprocess as sb
 
@@ -21,9 +22,9 @@ def submit_simulations(save_simulation_files,dirs,mdpfiles,runslurms,rstslurms,m
     for n in range(n_dirs):
         dir = dirs[n]
         if os.path.exists(dir):
-            print "skipping %s" % dir
+            print("skipping %s" % dir)
         else:
-            print "starting %s" % dir
+            print("starting %s" % dir)
             os.mkdir(dir)
             os.chdir(dir)
 

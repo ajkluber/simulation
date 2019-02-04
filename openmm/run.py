@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import shutil
 import numpy as np
@@ -13,7 +14,7 @@ import additional_reporters
 global energy_minimization_tol
 energy_minimization_tol = unit.Quantity(value=10., unit=unit.kilojoule_per_mole)
 
-def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
+def adaptively_find_best_pressure(target_volume, ff_files, name, n_beads,
         cutoff, r_switch, refT, save_forces=False, cuda=False, p0=4000.):
     """Adaptively change pressure to reach target volume (density)"""
 
@@ -40,7 +41,7 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
     templates = util.template_dict(topology, n_beads)
     min_name, log_name, traj_name, final_state_name = util.output_filenames(name, traj_idx)
 
-    forcefield = app.ForceField(ff_filename)
+    forcefield = app.ForceField(*ff_files)
 
     system = forcefield.createSystem(topology,
             nonbondedMethod=app.CutoffPeriodic, nonbondedCutoff=cutoff,
@@ -79,8 +80,8 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
 
     simulation.reporters.append(additional_reporters.ForceReporter(name + "_forces_{}.dat".format(traj_idx), nsteps_out))
 
-    print "Target: ", target_volume, " (nm^3)"
-    print "Step    Pressure   Volume   Factor: "
+    print("Target: ", target_volume, " (nm^3)")
+    print("Step    Pressure   Volume   Factor: ")
     all_P = []
     all_V = []
     for i in range(200):
@@ -97,7 +98,7 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
         factor = (box_volume/target_volume)
         if (i > 10):
             if perc_err_V <= 5:
-                print "{:<5d} {:>10.2f} {:>10.2f} {:>5.7f}  DONE".format(i + 1, P, box_volume, factor)
+                print("{:<5d} {:>10.2f} {:>10.2f} {:>5.7f}  DONE".format(i + 1, P, box_volume, factor))
                 simulation.saveState("final_state.xml")
                 state = simulation.context.getState()
                 box_vecs = state.getPeriodicBoxVectors()
@@ -106,7 +107,7 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
                 break
 
         # update pressure
-        print "{:<5d} {:>10.2f} {:>10.2f} {:>5.7f}".format(i + 1, P, box_volume, factor)
+        print("{:<5d} {:>10.2f} {:>10.2f} {:>5.7f}".format(i + 1, P, box_volume, factor))
         old_pressure = pressure
         pressure = factor*old_pressure
         simulation.context.setParameter(barostat.Pressure(), pressure)
@@ -117,7 +118,7 @@ def adaptively_find_best_pressure(target_volume, ff_filename, name, n_beads,
     np.save("pressure_in_atm_vs_step.npy", all_P)
     np.save("volume_in_nm3_vs_step.npy", all_V)
 
-def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, refT, T,
+def equilibrate_unitcell_volume(pressure, ff_files, name, n_beads, refT, T,
         cutoff, r_switch, prev_state_file, cuda=False):
     """Adaptively change pressure to reach target volume (density)"""
 
@@ -147,7 +148,7 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, refT, T,
     log_name = name + "_{}.log".format(traj_idx)
     traj_name = name + "_traj_{}.dcd".format(traj_idx)
 
-    forcefield = app.ForceField(ff_filename)
+    forcefield = app.ForceField(*ff_files)
 
     system = forcefield.createSystem(topology,
             nonbondedMethod=app.CutoffPeriodic, nonbondedCutoff=cutoff,
@@ -173,7 +174,11 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, refT, T,
     else:
         simulation = app.Simulation(topology, system, integrator)
 
-    simulation.loadState(prev_state_file)
+    if prev_state_file.endswith("xml"):
+        simulation.loadState(prev_state_file)
+    else:
+        pdb = app.PDBFile(prev_state_file)
+        simulation.context.setPositions(pdb.positions)
 
     simulation.reporters.append(app.DCDReporter(traj_name, nsteps_out))
     simulation.reporters.append(app.StateDataReporter(log_name, nsteps_out,
@@ -213,14 +218,15 @@ def equilibrate_unitcell_volume(pressure, ff_filename, name, n_beads, refT, T,
     np.save("box_dims_nm.npy", box_dims_in_nm)
 
 def production(topology, positions, ensemble, temperature, timestep,
-        collision_rate, pressure, n_steps, nsteps_out, ff_filename,
+        collision_rate, pressure, n_steps, nsteps_out, ff_files,
         firstframe_name, log_name, traj_name, final_state_name, cutoff,
-        templates, n_equil_steps=1000, nonbondedMethod=app.CutoffPeriodic,
-        prev_state_name=None, use_switch=False, r_switch=0, minimize=False,
-        cuda=False, gpu_idxs=False, more_reporters=[], dynamics="Langevin"): 
+        templates, n_equil_steps=1000, 
+        nonbondedMethod=app.CutoffPeriodic, prev_state_name=None,
+        use_switch=False, r_switch=0, minimize=False, cuda=False,
+        gpu_idxs=False, more_reporters=[], dynamics="Langevin"): 
 
-    # load forcefield from xml file
-    forcefield = app.ForceField(ff_filename)
+    # load forcefield from xml file(s)
+    forcefield = app.ForceField(*ff_files)
 
     system = forcefield.createSystem(topology,
             nonbondedMethod=nonbondedMethod, nonbondedCutoff=cutoff,
