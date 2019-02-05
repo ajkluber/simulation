@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+import sys
 import numpy as np
 import xml.etree.ElementTree as ET
 
@@ -5,7 +7,7 @@ import simtk.unit as unit
 import simtk.openmm as omm
 import simtk.openmm.app as app
 
-import tabulated
+import simulation.openmm.tabulated as tabulated
 
 ############################################
 # parameters
@@ -317,9 +319,9 @@ def polymer_in_solvent(n_beads, ply_potential, slv_potential, saveas="ff_cgs.xml
         add_bonded_term_items(n_beads, ff, atm_types, res_types, mass_ply)
 
     indent(ff)
+    out_str = ET.tostring(ff).decode(sys.stdout.encoding)
     with open(saveas, "w") as fout:
-        fout.write(ET.tostring(ff))
-
+        fout.write(out_str)
 
 #def cv_force_xml(n_beads, cv_expr, cv_grid, Ucv_table):
 #

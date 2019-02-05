@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 import os
 import time
 import argparse
@@ -8,7 +8,7 @@ import simtk.unit as unit
 import simtk.openmm as omm
 import simtk.openmm.app as app
 
-import util
+import simulation.openmm.util as util
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='.')

@@ -1,10 +1,11 @@
+from __future__ import absolute_import
 import os 
 import shutil
 import subprocess as sb
 
 import model_builder as mdb
 
-import input_script
+import simulation.lammps.input_script as input_script
 
 class AwsemParameters(object):
     """class to hold and set parameters for awsem"""

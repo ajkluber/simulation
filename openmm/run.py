@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 import os
 import shutil
 import numpy as np
@@ -8,8 +8,8 @@ import simtk.unit as unit
 import simtk.openmm as omm
 import simtk.openmm.app as app
 
-import util
-import additional_reporters
+import simulation.openmm.util as util
+import simulation.openmm.additional_reporters as additional_reporters
 
 global energy_minimization_tol
 energy_minimization_tol = unit.Quantity(value=10., unit=unit.kilojoule_per_mole)
@@ -222,7 +222,8 @@ def production(system, topology, ensemble, temperature, timestep,
         firstframe_name, log_name, traj_name, final_state_name,
         n_equil_steps=1000, ini_positions=None, ini_state_name=None,
         use_switch=False, r_switch=None, pressure=None, minimize=False, 
-        cuda=False, gpu_idxs=None, more_reporters=[], dynamics="Langevin"): 
+        cuda=False, gpu_idxs=None, more_reporters=[], dynamics="Langevin", 
+        use_platform=None): 
 
     if use_switch:
         # set switching function on nonbonded forces
@@ -249,16 +250,23 @@ def production(system, topology, ensemble, temperature, timestep,
                 raise ValueError("If ensemble is NPT need to specficy pressure")
             system.addForce(omm.MonteCarloBarostat(pressure, temperature))
     
-    if cuda:
-        platform = omm.Platform.getPlatformByName('CUDA') 
-        if gpu_idxs is None:
-            properties = {'DeviceIndex': '0'}
-        else:
-            properties = {'DeviceIndex': gpu_idxs}
+    if not use_platform is None:
+        if use_platform == "CUDA":
+            platform = omm.Platform.getPlatformByName('CUDA') 
+            if gpu_idxs is None:
+                properties = {'DeviceIndex': '0'}
+            else:
+                properties = {'DeviceIndex': gpu_idxs}
 
-        simulation = app.Simulation(topology, system, integrator, platform, properties)
+            simulation = app.Simulation(topology, system, integrator, platform, properties)
+        elif use_platform == "CPU":
+            platform = omm.Platform.getPlatformByName("CPU")
+            simulation = app.Simulation(topology, system, integrator, platform)
+        else:
+            raise ValueError("use_platform needs to be CUDA or CPU or not specfied")
     else:
         simulation = app.Simulation(topology, system, integrator)
+
 
     if not ini_positions is None:
         # set initial positions and box dimensions
@@ -300,7 +308,6 @@ def production(system, topology, ensemble, temperature, timestep,
 
 if __name__ == "__main__":
     # sandbox
-
     n_forces = system.getNumForces()
 
     for i in range(n_forces):
@@ -311,7 +318,8 @@ if __name__ == "__main__":
     fex, fb, fa, fcv = system.getForce(0), system.getForce(1), system.getForce(2), system.getForce(4)
 
     integrator = omm.VerletIntegrator(timestep)
-    simulation = app.Simulation(topology, system, integrator)
+    platform = omm.Platform.getPlatformByName("CPU")
+    simulation = app.Simulation(topology, system, integrator, platform)
     simulation.context.setPositions(positions)
 
     print("KE            r12           bonds          angles            CMM            CV")
